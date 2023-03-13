@@ -37,6 +37,7 @@ pub fn FixBuf(comptime size: usize) type {
                                 ch = try msg.readByte();
                             }
                             if (ch != '\r') return error.BufTooSmall;
+                            res.len = res.buf.len;
                             try msg.skipBytes(1, .{});
                             return res;
                         },
@@ -80,4 +81,14 @@ pub fn FixBuf(comptime size: usize) type {
 test "docs" {
     @import("std").testing.refAllDecls(@This());
     @import("std").testing.refAllDecls(FixBuf(42));
+}
+
+test "FixBuf" {
+    const parser = @import("../parser.zig").RESP3Parser;
+    {
+        const res = try parser.parse(FixBuf(4), std.io.fixedBufferStream("+PONG\r\n"));
+        try std.testing.expectEqualSlices(u8, res.buf, "PONG");
+        try std.testing.expectEqual(res.buf.len, 4);
+    }
+    try std.testing.expect(false);
 }
