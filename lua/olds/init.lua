@@ -4,7 +4,6 @@ local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
 
 local redis = require("olds.redis")
-local unsafe = require("olds.unsafe")
 
 local api = vim.api
 local uv = vim.loop

@@ -49,7 +49,7 @@ end
 
 function M.ping()
   assert(state.connected)
-  return libredis.redis_ping();
+  return libredis.redis_ping()
 end
 
 ---@param key string
@@ -65,6 +65,9 @@ function M.zadd(key, ...)
   local count = 0
   for i = 1, #args, 2 do
     count = count + tonumber(libredis.redis_zadd(key, args[i], args[i + 1]))
+    -- todo: yield
+    -- I doubt if this can be the the same as trio.sleep(0)
+    -- vim.wait(0)
   end
 
   return count
