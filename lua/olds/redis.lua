@@ -7,10 +7,11 @@ ffi.cdef([[
   bool redis_connect_ip(const char *ip, uint16_t port);
   void redis_close();
 
-  int64_t redis_zadd(const char *key, double score, const char *member);
   bool redis_del(const char *key);
-  int64_t redis_zcard(const char *key);
   bool redis_ping();
+  int64_t redis_zadd(const char *key, double score, const char *member);
+  int64_t redis_zcard(const char *key);
+  int64_t redis_zremrangebyrank(const char *key, int64_t start, int64_t stop);
 
   bool redis_zrange_to_file(const char *key, int64_t start, int64_t stop, const char *path);
 ]])
@@ -89,6 +90,22 @@ function M.zrange_to_file(key, start, stop, outfile)
   assert(state.connected)
   assert(fs.is_absolute(outfile))
   return libredis.redis_zrange_to_file(key, start, stop, outfile)
+end
+
+---@param key string
+---@return number
+function M.zcard(key)
+  assert(state.connected)
+  return assert(tonumber(libredis.redis_zcard(key)))
+end
+
+---@param key string
+---@param start number 0-based, inclusive
+---@param stop number 0-based, inclusive
+---@return number
+function M.zremrangebyrank(key, start, stop)
+  assert(state.connected)
+  return assert(tonumber(libredis.redis_zremrangebyrank(key, start, stop)))
 end
 
 return M

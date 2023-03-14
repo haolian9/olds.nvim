@@ -11,6 +11,7 @@ local uv = vim.loop
 local facts = {
   aug = api.nvim_create_augroup("olds", {}),
   global_zset = string.format("%s:nvim:olds:global", uv.getuid()),
+  history_size = 200,
 }
 
 local state = {
@@ -62,6 +63,9 @@ function M.setup(sock_path)
     callback = function()
       assert(state.has_setup)
       assert(#state.history == 0)
+      -- honor the history_size
+      local pop = redis.zcard(facts.global_zset)
+      if pop > facts.history_size then redis.zremrangebyrank(facts.global_zset, 0, pop - facts.history_size - 1) end
       redis.close()
     end,
   })

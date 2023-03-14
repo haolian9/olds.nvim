@@ -22,7 +22,6 @@ export fn redis_connect_unix(cpath: [*:0]const u8) callconv(.C) bool {
     };
     errdefer stream.close();
 
-    // todo: possiblely avoid this copying?
     var client: okredis.Client = undefined;
     client.init(stream) catch |err| {
         log.err("init client failed: {}", .{err});
@@ -109,6 +108,15 @@ export fn redis_zcard(ckey: [*:0]const u8) i64 {
 
     return client.send(i64, .{ "ZCARD", key }) catch |err| {
         log.err("ZCARD failed: {}", .{err});
+        return 0;
+    };
+}
+
+export fn redis_zremrangebyrank(ckey: [*:0]const u8, start: i64, stop: i64) i64 {
+    const client: *okredis.Client = if (maybe_client) |*cl| cl else return 0;
+    const key = std.mem.span(ckey);
+    return client.send(i64, .{ "ZREMRANGEBYRANK", key, start, stop }) catch |err| {
+        log.err("ZREMBYRANK failed: {}", .{err});
         return 0;
     };
 }

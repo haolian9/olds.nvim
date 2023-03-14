@@ -5,6 +5,7 @@ proved workable, v0 phase
 * redis >= 6.* (okredis)
 * nvim 0.8.*
 * zig 0.10.* (compile time)
+* haolian9/infra.nvim
 
 ## features
 v0
@@ -12,7 +13,7 @@ v0
 * [x] long-lived redis connection
 * [x] storing data in redis
 * [x] batch insertion
-* [ ] history size
+* [x] history size
 * [x] programming apis: for fond.nvim
 * [ ] filling from shada.oldfiles
 
