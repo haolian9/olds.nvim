@@ -21,6 +21,8 @@ v1
 * long-lived redis connection based on luv tcp/socket
 * RESP3 parser from okredis
 
+## installation
+* `zig build -Drelease-safe`
 
 ## usage
 * `require'olds'.setup('/run/user/1000/redis.sock')` # tcp address (ip:port) is not exposed yet.
