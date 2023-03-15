@@ -16,11 +16,12 @@ v0
 * [x] history size
 * [x] programming apis: for fond.nvim
 * [ ] filling from shada.oldfiles
+* [ ] :Oldfiles
 
 v1
-* per-project-user MRU files
-* long-lived redis connection based on luv tcp/socket
-* RESP3 parser from okredis
+* [ ] per-project-user MRU files
+* [ ] long-lived redis connection based on luv tcp/socket
+* [ ] RESP3 parser from okredis
 
 ## installation
 * `zig build -Drelease-safe`

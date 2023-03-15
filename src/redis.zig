@@ -144,7 +144,7 @@ export fn redis_zremrangebyrank(ckey: [*:0]const u8, start: i64, stop: i64) i64 
 // todo: redis_zrange
 // todo: iterator. offset, count
 // todo: no allocating
-export fn redis_zrange_to_file(ckey: [*:0]const u8, start: i64, stop: i64, cpath: [*:0]const u8) bool {
+export fn redis_zrevrange_to_file(ckey: [*:0]const u8, start: i64, stop: i64, cpath: [*:0]const u8) bool {
     const client: *okredis.Client = if (maybe_client) |*cl| cl else return false;
     const key = mem.span(ckey);
     const path = mem.span(cpath);

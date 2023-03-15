@@ -15,7 +15,7 @@ ffi.cdef([[
   int64_t redis_zcard(const char *key);
   int64_t redis_zremrangebyrank(const char *key, int64_t start, int64_t stop);
 
-  bool redis_zrange_to_file(const char *key, int64_t start, int64_t stop, const char *path);
+  bool redis_zrevrange_to_file(const char *key, int64_t start, int64_t stop, const char *path);
 ]])
 
 local M = {}
@@ -92,10 +92,10 @@ end
 ---@param stop number
 ---@param outfile string absolute path
 ---@return boolean
-function M.zrange_to_file(key, start, stop, outfile)
+function M.zrevrange_to_file(key, start, stop, outfile)
   assert(state.connected)
   assert(fs.is_absolute(outfile))
-  return libredis.redis_zrange_to_file(key, start, stop, outfile)
+  return libredis.redis_zrevrange_to_file(key, start, stop, outfile)
 end
 
 ---@param key string

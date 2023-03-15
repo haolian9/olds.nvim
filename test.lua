@@ -5,7 +5,7 @@ ffi.cdef([[
   bool redis_del(const char *key);
   int64_t redis_zcard(const char *key);
   void redis_close();
-  bool redis_zrange_to_file(const char *key, int64_t start, int64_t stop, const char *path);
+  bool redis_zrevrange_to_file(const char *key, int64_t start, int64_t stop, const char *path);
 
   typedef struct { double score; const char *value; } ZaddMember;
   int64_t redis_zadd(const char *key, const ZaddMember *members, size_t len);
@@ -29,7 +29,7 @@ local function main()
   end
 
   print("population?", libredis.redis_zcard(key))
-  print("dumped?", libredis.redis_zrange_to_file(key, 0, 25, "/tmp/redis-lua.dump"))
+  print("dumped?", libredis.redis_zrevrange_to_file(key, 0, 25, "/tmp/redis-lua.dump"))
   print("deleted?", libredis.redis_del(key))
   libredis.redis_close()
 end

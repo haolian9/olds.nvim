@@ -20,13 +20,18 @@ local state = {
 }
 
 ---@param bufnr number
----@return string?
+---@return string? absolute path
 local function resolve_fpath(bufnr)
-  -- is a 'regular file' buffer
+  -- a 'regular file' buffer
   if api.nvim_buf_get_option(bufnr, "buftype") ~= "" then return end
   local bufname = api.nvim_buf_get_name(bufnr)
-  -- has been named
+  -- named
   if bufname == "" then return end
+  -- for plugin
+  if string.find(bufname, "://") then return end
+  -- /tmp
+  if string.find(bufname, "/tmp/") then return end
+
   if fs.is_absolute(bufname) then return bufname end
   return vim.fn.expand("%:p", bufname)
 end
@@ -41,6 +46,7 @@ function M.setup(sock_path)
   api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
     group = facts.aug,
     callback = function(args)
+      assert(state.has_setup)
       local bufnr = args.buf
       local path = resolve_fpath(bufnr)
       if path == nil then return end
@@ -52,6 +58,7 @@ function M.setup(sock_path)
   api.nvim_create_autocmd({ "focuslost", "vimsuspend", "vimleavepre" }, {
     group = facts.aug,
     callback = function()
+      assert(state.has_setup)
       local hist = state.history
       if #hist == 0 then return end
       state.history = {}
