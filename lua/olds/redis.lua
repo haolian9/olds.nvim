@@ -1,6 +1,7 @@
 local ffi = require("ffi")
 local jelly = require("infra.jellyfish")("olds")
 local fs = require("infra.fs")
+local fn = require("infra.fn")
 
 ffi.cdef([[
   bool redis_connect_unix(const char *path);
@@ -9,7 +10,8 @@ ffi.cdef([[
 
   bool redis_del(const char *key);
   bool redis_ping();
-  int64_t redis_zadd(const char *key, double score, const char *member);
+  typedef struct { double score; const char *value; } ZaddMember;
+  int64_t redis_zadd(const char *key, const ZaddMember *members, size_t len);
   int64_t redis_zcard(const char *key);
   int64_t redis_zremrangebyrank(const char *key, int64_t start, int64_t stop);
 
@@ -61,17 +63,21 @@ function M.zadd(key, ...)
 
   local args = { ... }
   assert(#args % 2 == 0)
+  local len = #args / 2
+  assert(len > 0)
 
-  -- todo: refactor on zig side
-  local count = 0
-  for i = 1, #args, 2 do
-    count = count + tonumber(libredis.redis_zadd(key, args[i], args[i + 1]))
-    -- todo: yield
-    -- I doubt if this can be the the same as trio.sleep(0)
-    -- vim.wait(0)
+  local members
+  do
+    members = ffi.new("ZaddMember[?]", len)
+    local arg_iter = fn.iterate(args)
+    for i = 0, len - 1 do
+      local me = members[i]
+      me.score = assert(arg_iter())
+      me.value = assert(arg_iter())
+    end
   end
 
-  return count
+  return libredis.redis_zadd(key, members, len)
 end
 
 ---@param key string
