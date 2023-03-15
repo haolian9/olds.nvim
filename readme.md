@@ -16,7 +16,7 @@ v0
 * [x] history size
 * [x] programming apis: for fond.nvim
 * [ ] filling from shada.oldfiles
-* [ ] :Oldfiles
+* [x] :oldfiles
 
 v1
 * [ ] per-project-user MRU files
