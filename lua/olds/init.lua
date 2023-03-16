@@ -30,10 +30,12 @@ local function resolve_fpath(bufnr)
   local bufname = api.nvim_buf_get_name(bufnr)
   -- named
   if bufname == "" then return end
-  -- for plugin
-  if string.find(bufname, "://") then return end
+  -- plugin
+  if string.find(bufname, "://", nil, true) then return end
   -- /tmp
-  if string.find(bufname, "/tmp/") then return end
+  if vim.startswith(bufname, "/tmp/") then return end
+  -- .git/COMMIT_EDITMSG
+  if string.find(bufname, "/.git/", nil, true) then return end
 
   if fs.is_absolute(bufname) then return bufname end
   return vim.fn.expand("%:p", bufname)
