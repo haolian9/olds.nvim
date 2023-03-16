@@ -7,10 +7,25 @@ const debug = std.debug;
 const mem = std.mem;
 const allocator = std.heap.c_allocator;
 
-var maybe_client: ?okredis.Client = null;
+const Client = okredis.BufferedClient;
+
+var global_client: ?*Client = null;
+
+fn initGlobalClient(stream: std.net.Stream) bool {
+    const client = allocator.create(Client) catch |err| {
+        log.err("allocate memory failed: {}", .{err});
+        return false;
+    };
+    client.init(stream) catch |err| {
+        log.err("init client failed: {}", .{err});
+        return false;
+    };
+    global_client = client;
+    return true;
+}
 
 export fn redis_connect_unix(cpath: [*:0]const u8) bool {
-    if (maybe_client != null) return false;
+    if (global_client != null) return false;
 
     const path = mem.span(cpath);
     debug.assert(path.len > 0);
@@ -21,18 +36,11 @@ export fn redis_connect_unix(cpath: [*:0]const u8) bool {
     };
     errdefer stream.close();
 
-    var client: okredis.Client = undefined;
-    client.init(stream) catch |err| {
-        log.err("init client failed: {}", .{err});
-        return false;
-    };
-    maybe_client = client;
-
-    return true;
+    return initGlobalClient(stream);
 }
 
 export fn redis_connect_ip(cip: [*:0]const u8, port: u16) bool {
-    if (maybe_client != null) return false;
+    if (global_client != null) return false;
 
     const ip = mem.span(cip);
     debug.assert(ip.len > 0);
@@ -47,22 +55,19 @@ export fn redis_connect_ip(cip: [*:0]const u8, port: u16) bool {
     };
     errdefer stream.close();
 
-    var client: okredis.Client = undefined;
-    client.init(stream) catch |err| {
-        log.err("init client failed: {}", .{err});
-        return false;
-    };
-    maybe_client = client;
-
-    return true;
+    return initGlobalClient(stream);
 }
 
 export fn redis_close() void {
-    if (maybe_client) |client| client.close();
+    if (global_client) |client| {
+        client.close();
+        allocator.destroy(client);
+        global_client = null;
+    }
 }
 
 export fn redis_ping() bool {
-    const client: *okredis.Client = if (maybe_client) |*cl| cl else return false;
+    const client: *Client = if (global_client) |cl| cl else return false;
     const reply = client.send(okredis.types.FixBuf(4), .{"PING"}) catch |err| {
         log.err("PING failed: {}", .{err});
         return false;
@@ -92,7 +97,7 @@ const ZaddArgs = struct {
 };
 
 export fn redis_zadd(ckey: [*:0]const u8, cmembers: [*]ZaddMember, len: usize) i64 {
-    const client: *okredis.Client = if (maybe_client) |*cl| cl else return 0;
+    const client: *Client = if (global_client) |cl| cl else return 0;
     const key = mem.span(ckey);
     const args: ZaddArgs = .{ .members = cmembers[0..len] };
 
@@ -103,7 +108,7 @@ export fn redis_zadd(ckey: [*:0]const u8, cmembers: [*]ZaddMember, len: usize) i
 }
 
 export fn redis_del(ckey: [*:0]const u8) bool {
-    const client: *okredis.Client = if (maybe_client) |*cl| cl else return false;
+    const client: *Client = if (global_client) |cl| cl else return false;
     const key = mem.span(ckey);
 
     const reply = client.send(okredis.types.OrErr(void), .{ "DEL", key }) catch |err| {
@@ -123,7 +128,7 @@ export fn redis_del(ckey: [*:0]const u8) bool {
 }
 
 export fn redis_zcard(ckey: [*:0]const u8) i64 {
-    const client: *okredis.Client = if (maybe_client) |*cl| cl else return 0;
+    const client: *Client = if (global_client) |cl| cl else return 0;
     const key = mem.span(ckey);
 
     return client.send(i64, .{ "ZCARD", key }) catch |err| {
@@ -133,7 +138,7 @@ export fn redis_zcard(ckey: [*:0]const u8) i64 {
 }
 
 export fn redis_zremrangebyrank(ckey: [*:0]const u8, start: i64, stop: i64) i64 {
-    const client: *okredis.Client = if (maybe_client) |*cl| cl else return 0;
+    const client: *Client = if (global_client) |cl| cl else return 0;
     const key = mem.span(ckey);
     return client.send(i64, .{ "ZREMRANGEBYRANK", key, start, stop }) catch |err| {
         log.err("ZREMBYRANK failed: {}", .{err});
@@ -145,7 +150,7 @@ export fn redis_zremrangebyrank(ckey: [*:0]const u8, start: i64, stop: i64) i64 
 // todo: iterator. offset, count
 // todo: no allocating
 export fn redis_zrevrange_to_file(ckey: [*:0]const u8, start: i64, stop: i64, cpath: [*:0]const u8) bool {
-    const client: *okredis.Client = if (maybe_client) |*cl| cl else return false;
+    const client: *Client = if (global_client) |cl| cl else return false;
     const key = mem.span(ckey);
     const path = mem.span(cpath);
 
