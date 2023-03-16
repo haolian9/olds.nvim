@@ -81,7 +81,7 @@ const ZaddMember = extern struct {
 };
 
 const ZaddArgs = struct {
-    members: []const ZaddMember,
+    members: []const *const ZaddMember,
 
     pub const RedisArguments = struct {
         pub fn count(self: ZaddArgs) usize {
@@ -96,7 +96,7 @@ const ZaddArgs = struct {
     };
 };
 
-export fn redis_zadd(ckey: [*:0]const u8, cmembers: [*]ZaddMember, len: usize) i64 {
+export fn redis_zadd(ckey: [*:0]const u8, cmembers: [*]const *const ZaddMember, len: usize) i64 {
     const client: *Client = if (global_client) |cl| cl else return 0;
     const key = mem.span(ckey);
     const args: ZaddArgs = .{ .members = cmembers[0..len] };

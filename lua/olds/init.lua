@@ -67,7 +67,8 @@ function M.setup(sock_path)
       local hist = state.history
       if #hist == 0 then return end
       state.history = {}
-      redis.zadd(facts.global_zset, unpack(hist))
+      local n = redis.zadd(facts.global_zset, unpack(hist))
+      jelly.debug("added %d records", n)
     end,
   })
   api.nvim_create_autocmd("vimleave", {

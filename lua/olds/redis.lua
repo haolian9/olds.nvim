@@ -11,7 +11,7 @@ ffi.cdef([[
   bool redis_del(const char *key);
   bool redis_ping();
   typedef struct { double score; const char *value; } ZaddMember;
-  int64_t redis_zadd(const char *key, const ZaddMember *members, size_t len);
+  int64_t redis_zadd(const char *key, const ZaddMember *const *members, size_t len);
   int64_t redis_zcard(const char *key);
   int64_t redis_zremrangebyrank(const char *key, int64_t start, int64_t stop);
 
@@ -21,9 +21,11 @@ ffi.cdef([[
 local M = {}
 
 local libredis
+local ZaddMember
 do
   local path = fs.joinpath(fs.resolve_plugin_root("olds", "redis.lua"), "../..", "zig-out/lib/libredis.so")
   libredis = ffi.load(path, false)
+  ZaddMember = ffi.typeof("ZaddMember")
 end
 
 local state = {
@@ -68,12 +70,10 @@ function M.zadd(key, ...)
 
   local members
   do
-    members = ffi.new("ZaddMember[?]", len)
-    local arg_iter = fn.iterate(args)
+    members = ffi.new("const ZaddMember *[?]", len)
+    local iter = fn.iterate(args)
     for i = 0, len - 1 do
-      local me = members[i]
-      me.score = assert(arg_iter())
-      me.value = assert(arg_iter())
+      members[i] = ZaddMember(assert(iter()), assert(iter()))
     end
   end
 
