@@ -22,11 +22,11 @@ ffi.cdef([[
 
 local M = {}
 
-local libredis
+local client
 local ZaddMember
 do
-  local path = fs.joinpath(fs.resolve_plugin_root("olds", "redis.lua"), "../..", "zig-out/lib/libredis.so")
-  libredis = ffi.load(path, false)
+  local path = fs.joinpath(fs.resolve_plugin_root("olds", "redis_client.lua"), "../..", "zig-out/lib/libredisclient.so")
+  client = ffi.load(path, false)
   ZaddMember = ffi.typeof("ZaddMember")
 end
 
@@ -36,27 +36,27 @@ local state = {
 
 function M.connect_unix(path)
   if state.connected then return jelly.err("re-creating redis connection") end
-  local ok = libredis.redis_connect_unix(path)
+  local ok = client.redis_connect_unix(path)
   if ok then state.connected = true end
   return ok
 end
 
 function M.connect_ip(ip, port)
   if state.connected then return jelly.err("re-creating redis connection") end
-  local ok = libredis.redis_connect_ip(ip, port)
+  local ok = client.redis_connect_ip(ip, port)
   if ok then state.connected = true end
   return ok
 end
 
 function M.close()
   assert(state.connected)
-  libredis.redis_close()
+  client.redis_close()
   state.connected = false
 end
 
 function M.ping()
   assert(state.connected)
-  return libredis.redis_ping()
+  return client.redis_ping()
 end
 
 ---@param key string
@@ -79,14 +79,14 @@ function M.zadd(key, ...)
     end
   end
 
-  return libredis.redis_zadd(key, members, len)
+  return client.redis_zadd(key, members, len)
 end
 
 ---@param key string
 ---@return boolean
 function M.del(key)
   assert(state.connected)
-  return libredis.redis_del(key)
+  return client.redis_del(key)
 end
 
 ---@param key string
@@ -97,14 +97,14 @@ end
 function M.zrevrange_to_file(key, start, stop, outfile)
   assert(state.connected)
   assert(fs.is_absolute(outfile))
-  return libredis.redis_zrevrange_to_file(key, start, stop, outfile)
+  return client.redis_zrevrange_to_file(key, start, stop, outfile)
 end
 
 ---@param key string
 ---@return number
 function M.zcard(key)
   assert(state.connected)
-  return assert(tonumber(libredis.redis_zcard(key)))
+  return assert(tonumber(client.redis_zcard(key)))
 end
 
 ---@param key string
@@ -113,7 +113,7 @@ end
 ---@return number
 function M.zremrangebyrank(key, start, stop)
   assert(state.connected)
-  return assert(tonumber(libredis.redis_zremrangebyrank(key, start, stop)))
+  return assert(tonumber(client.redis_zremrangebyrank(key, start, stop)))
 end
 
 ---@param key string
@@ -122,11 +122,11 @@ end
 ---@return string[]?
 function M.zrevrange(key, start, stop)
   assert(state.connected)
-  local buf = libredis.redis_zrevrange(key, start, stop)
+  local buf = client.redis_zrevrange(key, start, stop)
   local ok, result = pcall(function()
     return fn.split(ffi.string(buf), "\n")
   end)
-  libredis.redis_free(buf)
+  client.redis_free(buf)
   if not ok then return jelly.err("ZREVRANGE: %s", assert(result)) end
   return result
 end

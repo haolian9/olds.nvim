@@ -5,7 +5,7 @@ local jelly = require("infra.jellyfish")("olds")
 local popup = require("infra.popup")
 local bufrename = require("infra.bufrename")
 
-local redis = require("olds.redis")
+local redis_client = require("olds.redis_client")
 
 local api = vim.api
 local uv = vim.loop
@@ -18,6 +18,7 @@ local facts = {
 
 local state = {
   has_setup = false,
+  ---@type (number|string)[] odd: access-time; even: absolute path
   history = {},
 }
 
@@ -40,11 +41,17 @@ local function resolve_fpath(bufnr)
   return vim.fn.expand("%:p", bufname)
 end
 
+--necessary setup
 function M.setup(sock_path)
   if state.has_setup then return end
 
-  if not redis.connect_unix(sock_path) then return jelly.err("unable connect to redis") end
+  if not redis_client.connect_unix(sock_path) then return jelly.err("unable connect to redis") end
   state.has_setup = true
+end
+
+--register autocmds to record and save oldfiles automatically
+function M.auto()
+  assert(state.has_setup)
 
   -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
   api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
@@ -66,7 +73,7 @@ function M.setup(sock_path)
       local hist = state.history
       if #hist == 0 then return end
       state.history = {}
-      local n = redis.zadd(facts.global_zset, unpack(hist))
+      local n = redis_client.zadd(facts.global_zset, unpack(hist))
       jelly.debug("added %d records", n)
     end,
   })
@@ -76,14 +83,17 @@ function M.setup(sock_path)
       assert(state.has_setup)
       assert(#state.history == 0)
       -- honor the history_size
-      local pop = redis.zcard(facts.global_zset)
-      if pop > facts.history_size then redis.zremrangebyrank(facts.global_zset, 0, pop - facts.history_size - 1) end
-      redis.close()
+      local pop = redis_client.zcard(facts.global_zset)
+      if pop > facts.history_size then redis_client.zremrangebyrank(facts.global_zset, 0, pop - facts.history_size - 1) end
+      redis_client.close()
     end,
   })
 end
 
+--show oldfiles in a floatwin
+---@param n number?
 function M.oldfiles(n)
+  assert(state.has_setup)
   local stop
   if n == nil then
     stop = 100 - 1
@@ -98,7 +108,7 @@ function M.oldfiles(n)
   local elapsed_ns
   do
     local ben_start = uv.hrtime()
-    history = redis.zrevrange(facts.global_zset, 0, stop)
+    history = redis_client.zrevrange(facts.global_zset, 0, stop)
     if history == nil then return end
     elapsed_ns = uv.hrtime() - ben_start
   end

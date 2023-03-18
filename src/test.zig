@@ -1,3 +1,3 @@
 test {
-    _ = @import("redis.zig");
+    _ = @import("redis_client.zig");
 }

@@ -8,7 +8,7 @@ pub fn build(b: *std.build.Builder) void {
     const pkg_okredis: std.build.Pkg = .{ .name = "okredis", .source = .{ .path = "vendor/okredis/src/okredis.zig" } };
 
     {
-        const lib = b.addSharedLibrary("redis", "src/redis.zig", .unversioned);
+        const lib = b.addSharedLibrary("redisclient", "src/redis_client.zig", .unversioned);
         lib.addPackage(pkg_okredis);
         lib.use_stage1 = true;
         lib.linkLibC();
