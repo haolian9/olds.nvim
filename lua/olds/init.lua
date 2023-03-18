@@ -84,20 +84,42 @@ function M.setup(sock_path)
 end
 
 function M.oldfiles(n)
-  n = n or 100
+  local stop
+  if n == nil then
+    stop = 100 - 1
+  elseif n == -1 then
+    stop = -1
+  else
+    stop = n - 1
+  end
+
   -- todo: show access-time
-  local history = redis.zrevrange(facts.global_zset, 0, n - 1)
-  if history == nil then return end
-  local bufnr = api.nvim_create_buf(false, true)
-  api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
-  api.nvim_buf_set_lines(bufnr, 0, -1, false, history)
-  bufrename(bufnr, "olds://history")
-  local width, height, top_row, left_col = popup.coordinates(0.8, 0.8)
-  -- stylua: ignore
-  api.nvim_open_win(bufnr, true, {
-    relative = 'editor', style = 'minimal',
-    row = top_row, col = left_col, width = width, height = height,
-  })
+  local history
+  local elapsed_ns
+  do
+    local ben_start = uv.hrtime()
+    history = redis.zrevrange(facts.global_zset, 0, stop)
+    if history == nil then return end
+    elapsed_ns = uv.hrtime() - ben_start
+  end
+
+  local bufnr
+  do
+    bufnr = api.nvim_create_buf(false, true)
+    api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
+    api.nvim_buf_set_lines(bufnr, 0, 1, false, { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "" })
+    api.nvim_buf_set_lines(bufnr, 2, -1, false, history)
+    bufrename(bufnr, "olds://history")
+  end
+
+  do
+    local width, height, top_row, left_col = popup.coordinates(0.8, 0.8)
+    -- stylua: ignore
+    api.nvim_open_win(bufnr, true, {
+      relative = 'editor', style = 'minimal',
+      row = top_row, col = left_col, width = width, height = height,
+    })
+  end
 end
 
 return M
