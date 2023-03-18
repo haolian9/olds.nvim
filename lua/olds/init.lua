@@ -2,7 +2,6 @@ local M = {}
 
 local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
-local ex = require("infra.ex")
 local popup = require("infra.popup")
 local bufrename = require("infra.bufrename")
 
@@ -86,14 +85,12 @@ end
 
 function M.oldfiles(n)
   n = n or 100
-  local outfile = string.format("/tmp/%d-nvim.oldfiles", uv.getuid())
-  -- todo: read zrevrange directly
   -- todo: show access-time
-  redis.zrevrange_to_file(facts.global_zset, 0, n - 1, outfile)
+  local history = redis.zrevrange(facts.global_zset, 0, n - 1)
+  if history == nil then return end
   local bufnr = api.nvim_create_buf(false, true)
   api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
-  -- stylua: ignore
-  api.nvim_buf_call(bufnr, function() ex("read", outfile) end)
+  api.nvim_buf_set_lines(bufnr, 0, -1, false, history)
   bufrename(bufnr, "olds://history")
   local width, height, top_row, left_col = popup.coordinates(0.8, 0.8)
   -- stylua: ignore

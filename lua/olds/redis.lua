@@ -7,6 +7,7 @@ ffi.cdef([[
   bool redis_connect_unix(const char *path);
   bool redis_connect_ip(const char *ip, uint16_t port);
   void redis_close();
+  void redis_free(const char *reply);
 
   bool redis_del(const char *key);
   bool redis_ping();
@@ -14,6 +15,7 @@ ffi.cdef([[
   int64_t redis_zadd(const char *key, const ZaddMember *const *members, size_t len);
   int64_t redis_zcard(const char *key);
   int64_t redis_zremrangebyrank(const char *key, int64_t start, int64_t stop);
+  const char *redis_zrevrange(const char *key, int64_t start, int64_t stop);
 
   bool redis_zrevrange_to_file(const char *key, int64_t start, int64_t stop, const char *path);
 ]])
@@ -112,6 +114,21 @@ end
 function M.zremrangebyrank(key, start, stop)
   assert(state.connected)
   return assert(tonumber(libredis.redis_zremrangebyrank(key, start, stop)))
+end
+
+---@param key string
+---@param start number
+---@param stop number
+---@return string[]?
+function M.zrevrange(key, start, stop)
+  assert(state.connected)
+  local buf = libredis.redis_zrevrange(key, start, stop)
+  local ok, result = pcall(function()
+    return fn.split(ffi.string(buf), "\n")
+  end)
+  libredis.redis_free(buf)
+  if not ok then return jelly.err("ZREVRANGE: %s", assert(result)) end
+  return result
 end
 
 return M

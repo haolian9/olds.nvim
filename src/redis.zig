@@ -12,10 +12,7 @@ const Client = okredis.BufferedClient;
 var global_client: ?*Client = null;
 
 fn initGlobalClient(stream: std.net.Stream) bool {
-    const client = allocator.create(Client) catch |err| {
-        log.err("allocate memory failed: {}", .{err});
-        return false;
-    };
+    const client = allocator.create(Client) catch |err| @panic(@errorName(err));
     client.init(stream) catch |err| {
         log.err("init client failed: {}", .{err});
         return false;
@@ -180,4 +177,42 @@ export fn redis_zrevrange_to_file(ckey: [*:0]const u8, start: i64, stop: i64, cp
     }
 
     return true;
+}
+
+const ZrangeArray = std.ArrayList(u8);
+
+fn zrangeResult(array: *ZrangeArray) [*:0]const u8 {
+    array.append(0) catch |err| @panic(@errorName(err));
+    const slice = array.toOwnedSliceSentinel(0) catch |err| @panic(@errorName(err));
+    return slice.ptr;
+}
+
+/// the returned string == "\n".join(members)
+/// caller needs to free the returned value using redis_free()
+export fn redis_zrevrange(ckey: [*:0]const u8, start: i64, stop: i64) [*:0]const u8 {
+    var array = ZrangeArray.init(allocator);
+    errdefer array.deinit();
+
+    const client: *Client = if (global_client) |cl| cl else return zrangeResult(&array);
+    const key = mem.span(ckey);
+
+    const reply = client.sendAlloc([]const []const u8, allocator, .{ "ZRANGE", key, start, stop, "REV" }) catch |err| {
+        log.err("ZRANGE failed: {}", .{err});
+        return zrangeResult(&array);
+    };
+    defer okredis.freeReply(reply, allocator);
+
+    const last = reply.len - 1;
+    for (reply) |member, i| {
+        array.appendSlice(member) catch |err| @panic(@errorName(err));
+        if (i < last) {
+            array.append('\n') catch |err| @panic(@errorName(err));
+        }
+    }
+
+    return zrangeResult(&array);
+}
+
+export fn redis_free(reply: [*:0]const u8) void {
+    allocator.destroy(reply);
 }

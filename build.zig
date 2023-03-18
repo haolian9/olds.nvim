@@ -17,19 +17,6 @@ pub fn build(b: *std.build.Builder) void {
     }
 
     {
-        const run_step = b.step("run", "Run the main()");
-        run_step.dependOn(blk: {
-            const exe = b.addExecutable("main", "src/main.zig");
-            exe.addPackage(pkg_okredis);
-            exe.use_stage1 = true;
-            const run_cmd = exe.run();
-            run_cmd.step.dependOn(b.getInstallStep());
-            if (b.args) |args| run_cmd.addArgs(args);
-            break :blk &run_cmd.step;
-        });
-    }
-
-    {
         const test_step = b.step("test", "Run library tests");
         test_step.dependOn(blk: {
             const step = b.addTest("src/test.zig");
