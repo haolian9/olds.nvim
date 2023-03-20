@@ -165,15 +165,12 @@ export fn redis_zrevrange_to_file(ckey: [*:0]const u8, start: i64, stop: i64, cp
     };
     defer okredis.freeReply(reply, allocator);
 
-    for (reply) |member| {
-        writer.writeAll(member) catch |err| {
-            log.err("write file failed: {}", .{err});
-            return false;
-        };
-        writer.writeAll("\n") catch |err| {
-            log.err("write file failed: {}", .{err});
-            return false;
-        };
+    if (reply.len > 0) {
+        const last = reply.len - 1;
+        for (reply) |member, i| {
+            writer.writeAll(member) catch |err| @panic(@errorName(err));
+            if (i < last) writer.writeAll("\n") catch |err| @panic(@errorName(err));
+        }
     }
 
     return true;
@@ -202,11 +199,11 @@ export fn redis_zrevrange(ckey: [*:0]const u8, start: i64, stop: i64) [*:0]const
     };
     defer okredis.freeReply(reply, allocator);
 
-    const last = reply.len - 1;
-    for (reply) |member, i| {
-        array.appendSlice(member) catch |err| @panic(@errorName(err));
-        if (i < last) {
-            array.append('\n') catch |err| @panic(@errorName(err));
+    if (reply.len > 0) {
+        const last = reply.len - 1;
+        for (reply) |member, i| {
+            array.appendSlice(member) catch |err| @panic(@errorName(err));
+            if (i < last) array.append('\n') catch |err| @panic(@errorName(err));
         }
     }
 
