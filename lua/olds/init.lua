@@ -47,9 +47,9 @@ function M.setup(...)
 
   local args = { ... }
   if #args == 1 then
-    state.client = RedisClient.connect_unix(unpack(args))
+    state.client = RedisClient.connect_unix(args[1])
   elseif #args == 2 then
-    state.client = RedisClient.connect_ip(unpack(args))
+    state.client = RedisClient.connect_tcp(args[1], args[2])
   else
     return jelly.err("invalid arguments for creating connection to redis")
   end

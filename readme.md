@@ -32,7 +32,7 @@
 
 ## todo
 
-maybe it's should to put the network i/o of redis into a dedicated thread
+put the network i/o of redis into a dedicated thread
 * pro:
     * not blocks the nvim/lua process
 * con:

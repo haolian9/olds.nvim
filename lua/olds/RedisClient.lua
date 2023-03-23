@@ -7,7 +7,7 @@ ffi.cdef([[
   uint64_t redis_client_size();
   typedef struct redisclient_t redisclient_t;
   redisclient_t *redis_connect_unix(char *vessal, const char *path);
-  redisclient_t *redis_connect_ip(char *vessal, const char *ip, uint16_t port);
+  redisclient_t *redis_connect_tcp(char *vessal, const char *ip, uint16_t port);
   void redis_close(redisclient_t *client);
   void redis_free(const char *reply);
 
@@ -131,10 +131,10 @@ end
 ---@param ip string
 ---@param port number
 ---@return olds.Client?
-function M.connect_ip(ip, port)
+function M.connect_tcp(ip, port)
   assert(ip and #ip > 0 and port)
   local vessal = ffi.new("char[?]", clientlib.redis_client_size())
-  local client = clientlib.redis_connect_ip(vessal, ip, port)
+  local client = clientlib.redis_connect_tcp(vessal, ip, port)
   if client then return new_client({ vessal = vessal, client = client }) end
 end
 

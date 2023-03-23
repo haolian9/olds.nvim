@@ -29,7 +29,7 @@ export fn redis_connect_unix(vessal: *[@sizeOf(Client)]u8, cpath: [*:0]const u8)
     return client;
 }
 
-export fn redis_connect_ip(vessal: *[@sizeOf(Client)]u8, cip: [*:0]const u8, port: u16) ?*Client {
+export fn redis_connect_tcp(vessal: *[@sizeOf(Client)]u8, cip: [*:0]const u8, port: u16) ?*Client {
     const client = @ptrCast(*Client, @alignCast(@alignOf(Client), vessal));
     const ip = mem.span(cip);
     debug.assert(ip.len > 0);
