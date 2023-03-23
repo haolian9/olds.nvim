@@ -9,62 +9,51 @@ const allocator = std.heap.c_allocator;
 
 const Client = okredis.BufferedClient;
 
-var global_client: ?*Client = null;
-
-fn initGlobalClient(stream: std.net.Stream) bool {
-    const client = allocator.create(Client) catch |err| @panic(@errorName(err));
-    client.init(stream) catch |err| {
-        log.err("init client failed: {}", .{err});
-        return false;
-    };
-    global_client = client;
-    return true;
+export fn redis_client_size() usize {
+    return @sizeOf(Client);
 }
 
-export fn redis_connect_unix(cpath: [*:0]const u8) bool {
-    if (global_client != null) return false;
-
+export fn redis_connect_unix(vessal: *[@sizeOf(Client)]u8, cpath: [*:0]const u8) ?*Client {
+    const client = @ptrCast(*Client, @alignCast(@alignOf(Client), vessal));
     const path = mem.span(cpath);
     debug.assert(path.len > 0);
 
     const stream = std.net.connectUnixSocket(path) catch |err| {
         log.err("open unixsocket failed: {}", .{err});
-        return false;
+        return null;
     };
     errdefer stream.close();
 
-    return initGlobalClient(stream);
+    client.init(stream) catch |err| @panic(@errorName(err));
+
+    return client;
 }
 
-export fn redis_connect_ip(cip: [*:0]const u8, port: u16) bool {
-    if (global_client != null) return false;
-
+export fn redis_connect_ip(vessal: *[@sizeOf(Client)]u8, cip: [*:0]const u8, port: u16) ?*Client {
+    const client = @ptrCast(*Client, @alignCast(@alignOf(Client), vessal));
     const ip = mem.span(cip);
     debug.assert(ip.len > 0);
 
     const addr = std.net.Address.resolveIp(ip, port) catch |err| {
         log.err("resolve address failed: {}", .{err});
-        return false;
+        return null;
     };
     const stream = std.net.tcpConnectToAddress(addr) catch |err| {
         log.err("open tcp failed: {}", .{err});
-        return false;
+        return null;
     };
     errdefer stream.close();
 
-    return initGlobalClient(stream);
+    client.init(stream) catch |err| @panic(@errorName(err));
+
+    return client;
 }
 
-export fn redis_close() void {
-    if (global_client) |client| {
-        client.close();
-        allocator.destroy(client);
-        global_client = null;
-    }
+export fn redis_close(client: *Client) void {
+    client.close();
 }
 
-export fn redis_ping() bool {
-    const client: *Client = if (global_client) |cl| cl else return false;
+export fn redis_ping(client: *Client) bool {
     const reply = client.send(okredis.types.FixBuf(4), .{"PING"}) catch |err| {
         log.err("PING failed: {}", .{err});
         return false;
@@ -93,8 +82,7 @@ const ZaddArgs = struct {
     };
 };
 
-export fn redis_zadd(ckey: [*:0]const u8, cmembers: [*]const *const ZaddMember, len: usize) i64 {
-    const client: *Client = if (global_client) |cl| cl else return 0;
+export fn redis_zadd(client: *Client, ckey: [*:0]const u8, cmembers: [*]const *const ZaddMember, len: usize) i64 {
     const key = mem.span(ckey);
     const args: ZaddArgs = .{ .members = cmembers[0..len] };
 
@@ -104,8 +92,7 @@ export fn redis_zadd(ckey: [*:0]const u8, cmembers: [*]const *const ZaddMember, 
     };
 }
 
-export fn redis_del(ckey: [*:0]const u8) bool {
-    const client: *Client = if (global_client) |cl| cl else return false;
+export fn redis_del(client: *Client, ckey: [*:0]const u8) bool {
     const key = mem.span(ckey);
 
     const reply = client.send(okredis.types.OrErr(void), .{ "DEL", key }) catch |err| {
@@ -124,8 +111,7 @@ export fn redis_del(ckey: [*:0]const u8) bool {
     }
 }
 
-export fn redis_zcard(ckey: [*:0]const u8) i64 {
-    const client: *Client = if (global_client) |cl| cl else return 0;
+export fn redis_zcard(client: *Client, ckey: [*:0]const u8) i64 {
     const key = mem.span(ckey);
 
     return client.send(i64, .{ "ZCARD", key }) catch |err| {
@@ -134,8 +120,7 @@ export fn redis_zcard(ckey: [*:0]const u8) i64 {
     };
 }
 
-export fn redis_zremrangebyrank(ckey: [*:0]const u8, start: i64, stop: i64) i64 {
-    const client: *Client = if (global_client) |cl| cl else return 0;
+export fn redis_zremrangebyrank(client: *Client, ckey: [*:0]const u8, start: i64, stop: i64) i64 {
     const key = mem.span(ckey);
     return client.send(i64, .{ "ZREMRANGEBYRANK", key, start, stop }) catch |err| {
         log.err("ZREMBYRANK failed: {}", .{err});
@@ -143,11 +128,8 @@ export fn redis_zremrangebyrank(ckey: [*:0]const u8, start: i64, stop: i64) i64 
     };
 }
 
-// todo: redis_zrange
 // todo: iterator. offset, count
-// todo: no allocating
-export fn redis_zrevrange_to_file(ckey: [*:0]const u8, start: i64, stop: i64, cpath: [*:0]const u8) bool {
-    const client: *Client = if (global_client) |cl| cl else return false;
+export fn redis_zrevrange_to_file(client: *Client, ckey: [*:0]const u8, start: i64, stop: i64, cpath: [*:0]const u8) bool {
     const key = mem.span(ckey);
     const path = mem.span(cpath);
 
@@ -186,11 +168,10 @@ fn zrangeResult(array: *ZrangeArray) [*:0]const u8 {
 
 /// the returned string == "\n".join(members)
 /// caller needs to free the returned value using redis_free()
-export fn redis_zrevrange(ckey: [*:0]const u8, start: i64, stop: i64) [*:0]const u8 {
+export fn redis_zrevrange(client: *Client, ckey: [*:0]const u8, start: i64, stop: i64) [*:0]const u8 {
     var array = ZrangeArray.init(allocator);
     errdefer array.deinit();
 
-    const client: *Client = if (global_client) |cl| cl else return zrangeResult(&array);
     const key = mem.span(ckey);
 
     const reply = client.sendAlloc([]const []const u8, allocator, .{ "ZRANGE", key, start, stop, "REV" }) catch |err| {

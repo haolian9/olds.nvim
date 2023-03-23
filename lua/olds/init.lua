@@ -5,7 +5,7 @@ local jelly = require("infra.jellyfish")("olds")
 local popup = require("infra.popup")
 local bufrename = require("infra.bufrename")
 
-local redis_client = require("olds.redis_client")
+local RedisClient = require("olds.RedisClient")
 
 local api = vim.api
 local uv = vim.loop
@@ -17,7 +17,7 @@ local facts = {
 }
 
 local state = {
-  has_setup = false,
+  client = nil,
   ---@type (number|string)[] odd: access-time; even: absolute path
   history = {},
 }
@@ -42,22 +42,30 @@ local function resolve_fpath(bufnr)
 end
 
 --necessary setup
-function M.setup(sock_path)
-  if state.has_setup then return end
+function M.setup(...)
+  if state.client then return end
 
-  if not redis_client.connect_unix(sock_path) then return jelly.err("unable connect to redis") end
-  state.has_setup = true
+  local args = { ... }
+  if #args == 1 then
+    state.client = RedisClient.connect_unix(unpack(args))
+  elseif #args == 2 then
+    state.client = RedisClient.connect_ip(unpack(args))
+  else
+    return jelly.err("invalid arguments for creating connection to redis")
+  end
+
+  if not state.client then return jelly.err("unable connect to redis") end
 end
 
 --register autocmds to record and save oldfiles automatically
 function M.auto()
-  assert(state.has_setup)
+  assert(state.client)
 
   -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
   api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
     group = facts.aug,
     callback = function(args)
-      assert(state.has_setup)
+      assert(state.client)
       local bufnr = args.buf
       local path = resolve_fpath(bufnr)
       if path == nil then return end
@@ -69,23 +77,23 @@ function M.auto()
   api.nvim_create_autocmd({ "focuslost", "vimsuspend", "vimleavepre" }, {
     group = facts.aug,
     callback = function()
-      assert(state.has_setup)
+      assert(state.client)
       local hist = state.history
       if #hist == 0 then return end
       state.history = {}
-      local n = redis_client.zadd(facts.global_zset, unpack(hist))
+      local n = state.client:zadd(facts.global_zset, unpack(hist))
       jelly.debug("added %d records", n)
     end,
   })
   api.nvim_create_autocmd("vimleave", {
     group = facts.aug,
     callback = function()
-      assert(state.has_setup)
+      assert(state.client)
       assert(#state.history == 0)
       -- honor the history_size
-      local pop = redis_client.zcard(facts.global_zset)
-      if pop > facts.history_size then redis_client.zremrangebyrank(facts.global_zset, 0, pop - facts.history_size - 1) end
-      redis_client.close()
+      local pop = state.client:zcard(facts.global_zset)
+      if pop > facts.history_size then state.client:zremrangebyrank(facts.global_zset, 0, pop - facts.history_size - 1) end
+      state.client:close()
     end,
   })
 end
@@ -93,7 +101,6 @@ end
 --show oldfiles in a floatwin
 ---@param n number?
 function M.oldfiles(n)
-  assert(state.has_setup)
   local stop
   if n == nil then
     stop = 100 - 1
@@ -108,7 +115,7 @@ function M.oldfiles(n)
   local elapsed_ns
   do
     local ben_start = uv.hrtime()
-    history = redis_client.zrevrange(facts.global_zset, 0, stop)
+    history = state.client:zrevrange(facts.global_zset, 0, stop)
     if history == nil then return end
     elapsed_ns = uv.hrtime() - ben_start
   end
