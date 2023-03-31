@@ -43,3 +43,15 @@ put the network i/o of redis into a dedicated thread
     * http://docs.libuv.org/en/v1.x/threading.html
     * luv.new_work or luv.new_thread
     * uv.uv_mutex_*
+
+implemented a basic redis RESP3 protocol parser in pure lua
+* pro
+    * avoid lua<->.so memory copying
+    * less chance to segment fault
+    * async ready
+* con
+    * RESP3 protocol parser (but it isnt too much complicated, so that doesnt really matter)
+* impl
+    * luv: new_{pipe,tcp}
+    * no zig/okredis
+    * conditions: failed to establish, write/read on a closed/broken connection
