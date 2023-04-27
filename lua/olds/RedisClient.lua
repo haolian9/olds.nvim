@@ -69,7 +69,7 @@ function M.connect_unix(sockpath)
     if err then
       error("unreachable: unexpected error: " .. err)
     elseif data then
-      if #data <= PIPE_BUF then
+      if #data > PIPE_BUF then
         -- close the connection to avoid hanging reads
         Client.close(state)
         error("reply could be paged")

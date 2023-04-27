@@ -103,7 +103,7 @@ function M.auto()
       do
         local reply = state.client:send("zcard", facts.global_zset)
         assert(reply.err == nil, reply.err)
-        pop = reply.data
+        pop = tonumber(reply.data, 10)
       end
       if pop > facts.history_size then
         local reply = state.client:send("zremrangebyrank", facts.global_zset, 0, pop - facts.history_size - 1)
