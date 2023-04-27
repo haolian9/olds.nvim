@@ -7,16 +7,12 @@
 * :oldfiles
 
 ## status
-* it just works and is crash-prone
+* it just works
+* it crashes often
 
 ## prerequisites
-* redis >= 6.* (okredis)
-* nvim 0.8.*
-* zig 0.10.* (compile time)
-* haolian9/infra.nvim
-
-## installation
-* `zig build -Drelease-safe`
+* redis >= 7.*
+* nvim 0.9.*
 
 ## usage
 * `.setup('/run/user/1000/redis.sock')` or `.setup('127.0.0.1', 6379)`
@@ -25,33 +21,10 @@
 * for more uses please have a look at `lua/{init,RedisClient}.lua`
 
 ## notes
-* libredisclient.so will block the lua process during communicating with redis,
-  which may hurt nvim's responsiveness.
-* it's an alternative to nvim's builtin oldfiles, user may consider having `'0` in &shada.
-* the round-trip time of PING is about 0.2ms
+`olds.protocol.unpack` is not a general sans-io protocol implementaion, it
+expects the data passed in is a single reply, no more no less. this can cause
+problems when the payload is bigger than PIPE_BUF
 
 ## todo
-
-put the network i/o of redis into a dedicated thread
-* pro:
-    * not blocks the nvim/lua process
-* con:
-    * need to expose some threading sync primitives
-    * much complicated code
-* impl:
-    * http://docs.libuv.org/en/v1.x/guide/threads.html
-    * http://docs.libuv.org/en/v1.x/threading.html
-    * luv.new_work or luv.new_thread
-    * uv.uv_mutex_*
-
-implemented a basic redis RESP3 protocol parser in pure lua
-* pro
-    * avoid lua<->.so memory copying
-    * less chance to segment fault
-    * async ready
-* con
-    * RESP3 protocol parser (but it isnt too much complicated, so that doesnt really matter)
-* impl
-    * luv: new_{pipe,tcp}
-    * no zig/okredis
-    * conditions: failed to establish, write/read on a closed/broken connection
+* make olds.protocol.unpack able to process stream data:
+    * .unpack(reader) vs. .feed(data)
