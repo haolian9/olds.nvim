@@ -42,6 +42,7 @@ local function resolve_fpath(bufnr)
 end
 
 --necessary setup
+---@return boolean
 function M.setup(...)
   if state.client then return true end
 
@@ -125,7 +126,6 @@ function M.oldfiles(n)
     stop = n - 1
   end
 
-  -- todo: show access-time
   local history
   local elapsed_ns
   do
@@ -158,10 +158,13 @@ function M.dump(outfile)
   local reply = state.client:send("ZRANGE", facts.global_zset, 0, -1, "REV")
   assert(reply.err == nil, reply.err)
   local history = reply.data
-  local file = assert(io.open(outfile, "w"))
-  local ok, err = pcall(function() assert(file:write(table.concat(history, "\n"))) end)
-  file:close()
-  if not ok then error(err) end
+  do
+    local file = assert(io.open(outfile, "w"))
+    local ok, err = pcall(function() assert(file:write(table.concat(history, "\n"))) end)
+    file:close()
+    assert(ok, err)
+  end
+  return true
 end
 
 return M

@@ -1,16 +1,17 @@
 
 ## features
-* global MRU/old files
-* data is stored in redis
+* global old files
+* storing data in redis
 * limited history size
 * programming apis: for fond.nvim
 * :oldfiles
 
 ## status
-* it just works
+* it just works (tm)
 * it crashes often
 
 ## prerequisites
+* linux
 * redis >= 7.*
 * nvim 0.9.*
 
@@ -21,9 +22,9 @@
 * for more uses please have a look at `lua/{init,RedisClient}.lua`
 
 ## notes
-`olds.protocol.unpack` is not a general sans-io protocol implementaion, it
-expects the data passed in is a single reply, no more no less. this can cause
-problems when the payload is bigger than PIPE_BUF
+`olds.protocol.unpack` does not support parsing multiple chunked data, it expects the data
+passed in be a single reply, no more no less. this can cause problems when the
+payload is bigger than PIPE_BUF.
 
 ## todo
 * make olds.protocol.unpack able to process stream data:

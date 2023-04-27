@@ -7,34 +7,37 @@ local protocol = require("olds.protocol")
 ---@field data any
 ---@field err string?
 
-local forever = math.pow(2, 31) - 1
+local FOREVER = math.pow(2, 31) - 1
+local PIPE_BUF = 4096
 
 ---@class olds.Client
----@field state {sock: any, closed: boolean, reply: olds.Reply}
+---@field private sock any
+---@field private closed boolean
+---@field private reply olds.Reply
 local Client = {}
 do
   ---@param cmd string
   ---@param ... string|number
   ---@return olds.Reply
   function Client:send(cmd, ...)
-    assert(not self.state.closed)
+    assert(not self.closed)
     local packed = protocol.pack(cmd, ...)
     -- todo: what should be done for the result of uv.write
-    local _ = uv.write(self.state.sock, packed, function(err) assert(err == nil, err) end)
-    vim.wait(forever, function() return self.state.closed or self.state.reply ~= nil end, 75)
-    if self.state.reply ~= nil then
-      local reply = self.state.reply
-      self.state.reply = nil
+    local _ = uv.write(self.sock, packed, function(err) assert(err == nil, err) end)
+    vim.wait(FOREVER, function() return self.closed or self.reply ~= nil end, 75)
+    if self.reply ~= nil then
+      local reply = self.reply
+      self.reply = nil
       return reply
     end
-    if self.state.closed then error("connection closed") end
+    if self.closed then error("connection closed") end
     -- could be ctrl-c by user
     error("unreachable: unexpected situation")
   end
 
   function Client:close()
-    uv.close(self.state.sock, function(err)
-      self.state.closed = true
+    uv.close(self.sock, function(err)
+      self.closed = true
       assert(err == nil, err)
     end)
   end
@@ -66,14 +69,20 @@ function M.connect_unix(sockpath)
     if err then
       error("unreachable: unexpected error: " .. err)
     elseif data then
-      local unpacked_data, request_err = protocol.unpack(data)
-      state.reply = { data = unpacked_data, err = request_err }
+      if #data <= PIPE_BUF then
+        -- close the connection to avoid hanging reads
+        Client.close(state)
+        error("reply could be paged")
+      else
+        local unpacked_data, request_err = protocol.unpack(data)
+        state.reply = { data = unpacked_data, err = request_err }
+      end
     else
       state.closed = true
     end
   end)
 
-  return setmetatable({ state = state }, { __index = Client })
+  return setmetatable(state, { __index = Client })
 end
 
 function M.connect_tcp(ip, port)

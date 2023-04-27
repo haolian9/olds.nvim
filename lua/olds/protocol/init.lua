@@ -1,4 +1,4 @@
---ref: https://redis.io/docs/reference/protocol-spec/
+--ref: https://github.com/redis/redis-specifications/blob/master/protocol/RESP2.md
 
 return {
   pack = require("olds.protocol.pack"),
