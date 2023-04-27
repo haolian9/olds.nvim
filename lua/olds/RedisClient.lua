@@ -1,7 +1,6 @@
 local M = {}
 
 local uv = vim.loop
-local jelly = require("infra.jellyfish")("olds.ping", vim.log.levels.DEBUG)
 local protocol = require("olds.protocol")
 
 ---@class olds.Reply
@@ -10,10 +9,44 @@ local protocol = require("olds.protocol")
 
 local forever = math.pow(2, 31) - 1
 
+---@class olds.Client
+---@field state {sock: any, closed: boolean, reply: olds.Reply}
+local Client = {}
+do
+  ---@param cmd string
+  ---@param ... string|number
+  ---@return olds.Reply
+  function Client:send(cmd, ...)
+    assert(not self.state.closed)
+    local packed = protocol.pack(cmd, ...)
+    -- todo: what should be done for the result of uv.write
+    local _ = uv.write(self.state.sock, packed, function(err) assert(err == nil, err) end)
+    vim.wait(forever, function() return self.state.closed or self.state.reply ~= nil end, 75)
+    if self.state.reply ~= nil then
+      local reply = self.state.reply
+      self.state.reply = nil
+      return reply
+    end
+    if self.state.closed then error("connection closed") end
+    -- could be ctrl-c by user
+    error("unreachable: unexpected situation")
+  end
+
+  function Client:close()
+    uv.close(self.state.sock, function(err)
+      self.state.closed = true
+      assert(err == nil, err)
+    end)
+  end
+end
+
+---@param sockpath string
+---@return olds.Client
 function M.connect_unix(sockpath)
   local sock = assert(uv.new_pipe())
 
   local state = {
+    sock = sock,
     closed = nil,
     ---@type olds.Reply
     reply = nil,
@@ -40,37 +73,12 @@ function M.connect_unix(sockpath)
     end
   end)
 
-  ---@param cmd string
-  ---@param ... string|number
-  ---@return olds.Reply
-  local function send(cmd, ...)
-    assert(not state.closed)
-    local packed = protocol.pack(cmd, ...)
-    jelly.debug("packed: %s", vim.inspect(packed))
-    -- todo: what should be done for the result of uv.write
-    local _ = uv.write(sock, packed, function(err) assert(err == nil, err) end)
-    vim.wait(forever, function() return state.closed or state.reply ~= nil end, 75)
-    if state.reply ~= nil then
-      local reply = state.reply
-      state.reply = nil
-      return reply
-    end
-    if state.closed then error("connection closed") end
-    -- could be ctrl-c by user
-    error("unreachable: unexpected situation")
-  end
+  return setmetatable({ state = state }, { __index = Client })
+end
 
-  local function close()
-    uv.close(sock, function(err)
-      state.closed = true
-      assert(err == nil, err)
-    end)
-  end
-
-  return {
-    send = send,
-    close = close,
-  }
+function M.connect_tcp(ip, port)
+  local _, _ = ip, port
+  error("not implemented")
 end
 
 return M
