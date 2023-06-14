@@ -1,3 +1,5 @@
+local strlib = require("infra.strlib")
+
 ---@class olds.Slice
 ---@field data string
 ---@field start number
@@ -11,7 +13,7 @@ do
   function exactor.bulk_string(slice)
     assert(string.sub(slice.data, slice.start, slice.start) == "$")
     local len_start = slice.start + 1 -- plus `$`
-    local len_stop = assert(string.find(slice.data, "\r\n", len_start, true), "missing end of bulk string len") - 1
+    local len_stop = assert(strlib.find(slice.data, "\r\n", len_start), "missing end of bulk string len") - 1
     local len = assert(tonumber(string.sub(slice.data, len_start, len_stop)))
     if len == -1 then error("unsupported nil string") end
     local str_start = len_stop + 2 + 1 -- plus `\r\n`
@@ -23,20 +25,20 @@ do
   function exactor.error_(slice)
     assert(string.sub(slice.data, slice.start, slice.start) == "-")
     local err_start = slice.start + 1
-    local err_stop = assert(string.find(slice.data, "\r\n", err_start, true), "missing end of error") - 1
+    local err_stop = assert(strlib.find(slice.data, "\r\n", err_start), "missing end of error") - 1
     return { data = slice.data, start = err_start, len = err_stop - err_start + 1 }
   end
 
   function exactor.simple_string(slice)
     assert(string.sub(slice.data, slice.start, slice.start) == "+")
     local str_start = slice.start + 1
-    local str_stop = assert(string.find(slice.data, "\r\n", str_start, true), "missing end of simple string") - 1
+    local str_stop = assert(strlib.find(slice.data, "\r\n", str_start), "missing end of simple string") - 1
     return { data = slice.data, start = str_start, len = str_stop - str_start + 1 }
   end
   function exactor.integer(slice)
     assert(string.sub(slice.data, slice.start, slice.start) == ":")
     local int_start = slice.start + 1
-    local int_stop = assert(string.find(slice.data, "\r\n", int_start, true), "missing end of simple string") - 1
+    local int_stop = assert(strlib.find(slice.data, "\r\n", int_start), "missing end of simple string") - 1
     return { data = slice.data, start = int_start, len = int_stop - int_start + 1 }
   end
 end
@@ -73,7 +75,7 @@ do
     local mem_len, mem_start
     do
       local len_start = slice.start + 1
-      local len_stop = assert(string.find(slice.data, "\r\n", len_start, true), "missing end of len") - 1
+      local len_stop = assert(strlib.find(slice.data, "\r\n", len_start), "missing end of len") - 1
       local len = assert(tonumber(string.sub(slice.data, len_start, len_stop)))
       if len == 0 then return {} end
       if len == -1 then error("unsupported nil list") end

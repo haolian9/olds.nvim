@@ -2,8 +2,10 @@ local M = {}
 
 local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
-local popup = require("infra.popup")
+local popupgeo = require("infra.popupgeo")
 local bufrename = require("infra.bufrename")
+local strlib = require("infra.strlib")
+local prefer = require("infra.prefer")
 
 local RedisClient = require("olds.RedisClient")
 
@@ -14,104 +16,117 @@ local facts = {
   aug = api.nvim_create_augroup("olds", {}),
   global_zset = string.format("%s:nvim:olds:global", uv.getuid()),
   history_size = 200,
+  ---@type fun():olds.Client
+  client_factory = nil,
 }
 
 local state = {
-  client = nil,
+  ---@type olds.Client?
+  _client = nil,
   ---@type (number|string)[] odd: access-time; even: absolute path
-  history = {},
+  _history = {},
 }
+do
+  ---@private
+  function state:client()
+    if self._client == nil then
+      local factory = assert(facts.client_factory, "olds.setup has not be called previously")
+      -- todo: can not establish connection
+      self._client = factory()
+    end
+    -- todo: dummy connection
+    return assert(self._client)
+  end
+
+  function state:close_client()
+    local client = self._client
+    if client then client:close() end
+  end
+
+  function state:record_history(access_time, abspath)
+    table.insert(self._history, access_time)
+    table.insert(self._history, abspath)
+  end
+
+  function state:persist_history()
+    local hist = self._history
+    if #hist == 0 then return end
+    self._history = {}
+    local client = self:client()
+    local reply = client:send("zadd", facts.global_zset, unpack(hist))
+    assert(reply.err == nil, reply.err)
+    jelly.debug("added %d records", reply.data)
+  end
+
+  function state:prune_history()
+    local client = self:client()
+    -- honor the history_size
+    local total
+    do
+      local reply = client:send("zcard", facts.global_zset)
+      assert(reply.err == nil, reply.err)
+      total = tonumber(reply.data, 10)
+    end
+    if total > facts.history_size then
+      local reply = client:send("zremrangebyrank", facts.global_zset, 0, total - facts.history_size - 1)
+      assert(reply.err == nil, reply.err)
+    end
+  end
+end
 
 ---@param bufnr number
 ---@return string? absolute path
 local function resolve_fpath(bufnr)
   -- a 'regular file' buffer
-  if api.nvim_buf_get_option(bufnr, "buftype") ~= "" then return end
+  if prefer.bo(bufnr, "buftype") ~= "" then return end
   local bufname = api.nvim_buf_get_name(bufnr)
   -- named
   if bufname == "" then return end
   -- plugin
-  if string.find(bufname, "://", nil, true) then return end
+  if strlib.find(bufname, "://") then return end
   -- /tmp
-  if vim.startswith(bufname, "/tmp/") then return end
+  if strlib.startswith(bufname, "/tmp/") then return end
   -- .git/COMMIT_EDITMSG
-  if string.find(bufname, "/.git/", nil, true) then return end
+  if strlib.find(bufname, "/.git/") then return end
 
   if fs.is_absolute(bufname) then return bufname end
   return vim.fn.expand("%:p", bufname)
 end
 
---necessary setup
----@return boolean
 function M.setup(...)
-  if state.client then return true end
-
   local args = { ... }
   if #args == 1 then
-    state.client = RedisClient.connect_unix(args[1])
+    facts.client_factory = function() return RedisClient.connect_unix(args[1]) end
   elseif #args == 2 then
-    state.client = RedisClient.connect_tcp(args[1], args[2])
+    facts.client_factory = function() return RedisClient.connect_tcp(args[1], args[2]) end
   else
-    jelly.err("invalid arguments for creating connection to redis")
-    return false
+    jelly.err("invalid arguments for creating RedisClient")
   end
 
-  if not state.client then
-    jelly.warn("unable connect to redis")
-    return false
+  do --to record and save oldfiles
+    -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
+    api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
+      group = facts.aug,
+      callback = function(args)
+        local bufnr = args.buf
+        local path = resolve_fpath(bufnr)
+        if path == nil then return end
+        state:record_history(os.time(), path)
+      end,
+    })
+    api.nvim_create_autocmd({ "focuslost", "vimsuspend", "vimleavepre" }, {
+      group = facts.aug,
+      callback = function() state:persist_history() end,
+    })
+    api.nvim_create_autocmd("vimleave", {
+      group = facts.aug,
+      callback = function()
+        assert(#state._history == 0, "history should be persisted before vimleave")
+        state:prune_history()
+        state:close_client()
+      end,
+    })
   end
-
-  return true
-end
-
---register autocmds to record and save oldfiles automatically
-function M.auto()
-  assert(state.client)
-
-  -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
-  api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
-    group = facts.aug,
-    callback = function(args)
-      assert(state.client)
-      local bufnr = args.buf
-      local path = resolve_fpath(bufnr)
-      if path == nil then return end
-      local time = os.time()
-      table.insert(state.history, time)
-      table.insert(state.history, path)
-    end,
-  })
-  api.nvim_create_autocmd({ "focuslost", "vimsuspend", "vimleavepre" }, {
-    group = facts.aug,
-    callback = function()
-      assert(state.client)
-      local hist = state.history
-      if #hist == 0 then return end
-      state.history = {}
-      local reply = state.client:send("zadd", facts.global_zset, unpack(hist))
-      assert(reply.err == nil, reply.err)
-      jelly.debug("added %d records", reply.data)
-    end,
-  })
-  api.nvim_create_autocmd("vimleave", {
-    group = facts.aug,
-    callback = function()
-      assert(state.client)
-      assert(#state.history == 0)
-      -- honor the history_size
-      local pop
-      do
-        local reply = state.client:send("zcard", facts.global_zset)
-        assert(reply.err == nil, reply.err)
-        pop = tonumber(reply.data, 10)
-      end
-      if pop > facts.history_size then
-        local reply = state.client:send("zremrangebyrank", facts.global_zset, 0, pop - facts.history_size - 1)
-        assert(reply.err == nil, reply.err)
-      end
-      state.client:close()
-    end,
-  })
 end
 
 --show oldfiles in a floatwin
@@ -130,7 +145,7 @@ function M.oldfiles(n)
   local elapsed_ns
   do
     local ben_start = uv.hrtime()
-    local reply = state.client:send("ZRANGE", facts.global_zset, 0, stop, "REV")
+    local reply = state:client():send("ZRANGE", facts.global_zset, 0, stop, "REV")
     assert(reply.err == nil, reply.err)
     history = reply.data
     if history == nil then return end
@@ -140,14 +155,14 @@ function M.oldfiles(n)
   local bufnr
   do
     bufnr = api.nvim_create_buf(false, true)
-    api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
+    prefer.bo(bufnr, "bufhidden", "wipe")
     api.nvim_buf_set_lines(bufnr, 0, 1, false, { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "" })
     api.nvim_buf_set_lines(bufnr, 2, -1, false, history)
     bufrename(bufnr, "olds://history")
   end
 
   do
-    local width, height, top_row, left_col = popup.coordinates(0.8, 0.8)
+    local width, height, top_row, left_col = popupgeo.editor_central(0.8, 0.8)
     api.nvim_open_win(bufnr, true, { relative = "editor", style = "minimal", row = top_row, col = left_col, width = width, height = height })
   end
 end
@@ -155,7 +170,7 @@ end
 ---@param outfile string
 ---@return boolean
 function M.dump(outfile)
-  local reply = state.client:send("ZRANGE", facts.global_zset, 0, -1, "REV")
+  local reply = state:client():send("ZRANGE", facts.global_zset, 0, -1, "REV")
   assert(reply.err == nil, reply.err)
   local history = reply.data
   do
@@ -165,6 +180,11 @@ function M.dump(outfile)
     assert(ok, err)
   end
   return true
+end
+
+function M.reset()
+  local reply = state:client():send("del", facts.global_zset)
+  assert(reply.err == nil, reply.err)
 end
 
 return M

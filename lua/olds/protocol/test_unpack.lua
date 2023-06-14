@@ -1,4 +1,6 @@
-local unpack = assert(loadfile("/srv/playground/olds.nvim/scratch/unpack.lua"))()
+local strlib = require("infra.strlib")
+
+local unpack = require("olds.protocol.unpack")
 
 do
   local data, err = unpack("-ERR unknown command 'hello'\r\n")
@@ -13,7 +15,7 @@ assert(unpack("$0\r\n\r\n") == "")
 
 do
   local ok, err = pcall(unpack, "$-1\r\n")
-  assert(not ok and string.find(err, "unsupported nil string", 1, true))
+  assert(not ok and strlib.find(err, "unsupported nil string"))
 end
 do
   local resolved = unpack("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n")
