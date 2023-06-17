@@ -3,4 +3,5 @@
 return {
   pack = require("olds.protocol.pack"),
   unpack = require("olds.protocol.unpack"),
+  Stash = require("olds.protocol.Stash"),
 }
