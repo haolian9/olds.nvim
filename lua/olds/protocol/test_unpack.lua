@@ -1,31 +1,84 @@
-local strlib = require("infra.strlib")
+---@diagnostic disable: invisible
+
+local fn = require("infra.fn")
 
 local unpack = require("olds.protocol.unpack")
+local Stash = require("olds.protocol.Stash")
 
-do
-  local data, err = unpack("-ERR unknown command 'hello'\r\n")
-  assert(data == nil and err == "ERR unknown command 'hello'")
+local co = coroutine
+
+local function assert_have_none(expect_err, ok, have_one, err)
+  assert(ok)
+  assert(not have_one)
+  assert(err == expect_err)
 end
 
-assert(unpack("+OK\r\n") == "OK")
-assert(unpack(":99\r\n") == "99")
-assert(unpack(":-1\r\n") == "-1")
-assert(unpack("$5\r\nhello\r\n") == "hello")
-assert(unpack("$0\r\n\r\n") == "")
+local function assert_have_one(expect_data, ok, have_one, data, err)
+  assert(ok)
+  assert(have_one)
+  assert(err == nil)
+  assert(data == expect_data)
+end
 
-do
-  local ok, err = pcall(unpack, "$-1\r\n")
-  assert(not ok and strlib.find(err, "unsupported nil string"))
+local function assert_have_list(expect_list, ok, have_one, data, err)
+  assert(ok)
+  assert(have_one)
+  assert(err == nil)
+  assert(type(data) == "table")
+  assert(fn.iter_equals(data, expect_list))
 end
-do
-  local resolved = unpack("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n")
-  assert(#resolved == 2 and resolved[1] == "hello" and resolved[2] == "world")
+
+local function assert_have_error(expect_err, ok, have_one, data, err)
+  assert(ok)
+  assert(have_one)
+  assert(data == nil)
+  assert(err == expect_err)
 end
-do
-  local resolved = unpack("*3\r\n:1\r\n:2\r\n:3\r\n")
-  assert(#resolved == 3 and resolved[1] == "1" and resolved[2] == "2" and resolved[3] == "3")
-end
-do
-  local resolved = unpack("*4\r\n:1\r\n:2\r\n$5\r\nhello\r\n+world\r\n")
-  assert(#resolved == 4 and resolved[1] == "1" and resolved[2] == "2" and resolved[3] == "hello" and resolved[4] == "world")
+
+do -- main
+  local stash = Stash()
+  local unpacker = unpack(stash)
+
+  assert_have_none("wait for new data", co.resume(unpacker))
+
+  do
+    stash:clear()
+
+    stash:push("-ERR unknown command 'hello'\r\n")
+    assert_have_error("ERR unknown command 'hello'", co.resume(unpacker))
+
+    stash:push("+OK\r\n")
+    assert_have_one("OK", co.resume(unpacker))
+
+    stash:push(":99\r\n")
+    assert_have_one(99, co.resume(unpacker))
+
+    stash:push(":-1\r\n")
+    assert_have_one(-1, co.resume(unpacker))
+
+    stash:push("$5\r\nhello\r\n")
+    assert_have_one("hello", co.resume(unpacker))
+
+    stash:push("$0\r\n\r\n")
+    assert_have_one("", co.resume(unpacker))
+
+    stash:push("$-1\r\n")
+    assert_have_one(nil, co.resume(unpacker))
+  end
+
+  do
+    stash:clear()
+    stash:push("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n")
+    assert_have_list({ "hello", "world" }, co.resume(unpacker))
+  end
+
+  do
+    stash:clear()
+    stash:push("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n")
+    stash:push("$-1\r\n")
+    stash:push("$0\r\n\r\n")
+    assert_have_list({ "hello", "world" }, co.resume(unpacker))
+    assert_have_one(nil, co.resume(unpacker))
+    assert_have_one("", co.resume(unpacker))
+  end
 end

@@ -65,7 +65,7 @@ do
     do
       local reply = client:send("zcard", facts.global_zset)
       assert(reply.err == nil, reply.err)
-      total = tonumber(reply.data, 10)
+      total = reply.data
     end
     if total > facts.history_size then
       local reply = client:send("zremrangebyrank", facts.global_zset, 0, total - facts.history_size - 1)
@@ -93,15 +93,10 @@ local function resolve_fpath(bufnr)
   return vim.fn.expand("%:p", bufname)
 end
 
-function M.setup(...)
-  local args = { ... }
-  if #args == 1 then
-    facts.client_factory = function() return RedisClient.connect_unix(args[1]) end
-  elseif #args == 2 then
-    facts.client_factory = function() return RedisClient.connect_tcp(args[1], args[2]) end
-  else
-    jelly.err("invalid arguments for creating RedisClient")
-  end
+---@param sockpath string @the absolute path to redis unix socket
+function M.setup(sockpath)
+  assert(sockpath)
+  facts.client_factory = function() return RedisClient.connect_unix(sockpath) end
 
   do --to record and save oldfiles
     -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
@@ -148,7 +143,8 @@ function M.oldfiles(n)
     local reply = state:client():send("ZRANGE", facts.global_zset, 0, stop, "REV")
     assert(reply.err == nil, reply.err)
     history = reply.data
-    if history == nil then return end
+    assert(type(history) == "table")
+    if #history == 0 then return end
     elapsed_ns = uv.hrtime() - ben_start
   end
 
@@ -173,6 +169,7 @@ function M.dump(outfile)
   local reply = state:client():send("ZRANGE", facts.global_zset, 0, -1, "REV")
   assert(reply.err == nil, reply.err)
   local history = reply.data
+  assert(type(history) == "table")
   do
     local file = assert(io.open(outfile, "w"))
     local ok, err = pcall(function() assert(file:write(table.concat(history, "\n"))) end)
