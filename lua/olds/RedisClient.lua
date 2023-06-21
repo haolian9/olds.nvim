@@ -37,8 +37,7 @@ do
   function Client:send(cmd, ...)
     assert(not self.closed)
     local packed = protocol.pack(cmd, ...)
-    -- todo: deal with this result
-    local _ = uv.write(self.sock, packed, function(err)
+    uv.write(self.sock, packed, function(err)
       if err ~= nil then fatal("write error: %s", err) end
     end)
     vim.wait(FOREVER, function() return self.closed or #self.replies > 0 end, 75)
@@ -91,7 +90,6 @@ function M.connect_unix(sockpath)
     client = setmetatable(state, Client)
   end
 
-  -- todo: need to close this uv_connect_t?
   uv.pipe_connect(client.sock, sockpath, function(err)
     if err == nil then
       client.closed = false

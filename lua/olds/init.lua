@@ -31,10 +31,8 @@ do
   function state:client()
     if self._client == nil then
       local factory = assert(facts.client_factory, "olds.setup has not be called previously")
-      -- todo: can not establish connection
       self._client = factory()
     end
-    -- todo: dummy connection
     return assert(self._client)
   end
 
@@ -166,22 +164,74 @@ end
 ---@param outfile string
 ---@return boolean
 function M.dump(outfile)
-  local reply = state:client():send("ZRANGE", facts.global_zset, 0, -1, "REV")
-  assert(reply.err == nil, reply.err)
-  local history = reply.data
-  assert(type(history) == "table")
+  local history
+  do
+    local reply = state:client():send("ZRANGE", facts.global_zset, 0, -1, "REV")
+    assert(reply.err == nil, reply.err)
+    history = reply.data
+    assert(type(history) == "table")
+  end
+
   do
     local file = assert(io.open(outfile, "w"))
     local ok, err = pcall(function() assert(file:write(table.concat(history, "\n"))) end)
     file:close()
     assert(ok, err)
   end
+
   return true
 end
 
 function M.reset()
-  local reply = state:client():send("del", facts.global_zset)
+  local reply = state:client():send("DEL", facts.global_zset)
   assert(reply.err == nil, reply.err)
+end
+
+function M.prune()
+  local history
+  do
+    local reply = state:client():send("ZRANGE", facts.global_zset, 0, -1, "rev")
+    assert(reply.err == nil, reply.err)
+    history = reply.data
+    assert(type(history) == "table")
+  end
+
+  local running, danglings = 0, {}
+
+  do
+    -- todo: dealloc?
+    local work = uv.new_work(
+      ---@param fpath string
+      function(fpath)
+        local _, _, err = vim.loop.fs_stat(fpath)
+        return fpath, err ~= "ENOENT"
+      end,
+      ---@param fpath string
+      ---@param exists boolean
+      function(fpath, exists)
+        running = running - 1
+        if exists then return end
+        table.insert(danglings, fpath)
+      end
+    )
+    for _, fpath in ipairs(history) do
+      uv.queue_work(work, fpath)
+    end
+  end
+
+  do
+    local timer = uv.new_timer()
+    uv.timer_start(timer, 0, 250, function()
+      if running > 0 then return end
+      uv.timer_stop(timer)
+      vim.schedule(function()
+        if #danglings == 0 then return jelly.info("no need to prune") end
+        local reply = state:client():send("ZREM", facts.global_zset, unpack(danglings))
+        assert(reply.err == nil, reply.err)
+        jelly.info("rm %s/%s members", reply.data, #danglings)
+      end)
+    end)
+  end
 end
 
 return M
