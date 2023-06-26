@@ -26,7 +26,6 @@ end
 ---@field private replies olds.Reply[]
 ---@field private stash olds.protocol.Stash
 ---@field private unpacker thread
---stash
 local Client = {}
 do
   Client.__index = Client
