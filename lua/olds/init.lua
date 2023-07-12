@@ -1,11 +1,11 @@
 local M = {}
 
+local bufrename = require("infra.bufrename")
 local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
 local popupgeo = require("infra.popupgeo")
-local bufrename = require("infra.bufrename")
-local strlib = require("infra.strlib")
 local prefer = require("infra.prefer")
+local strlib = require("infra.strlib")
 
 local RedisClient = require("olds.RedisClient")
 
