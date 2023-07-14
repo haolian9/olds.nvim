@@ -196,7 +196,7 @@ function M.prune()
     assert(type(history) == "table")
   end
 
-  local running, danglings = 0, {}
+  local running, danglings = #history, {}
 
   do
     -- todo: dealloc?
