@@ -56,19 +56,10 @@ do
     jelly.debug("added %d records", reply.data)
   end
 
-  function state:prune_history()
+  function state:trim_history()
     local client = self:client()
-    -- honor the history_size
-    local total
-    do
-      local reply = client:send("zcard", facts.global_zset)
-      assert(reply.err == nil, reply.err)
-      total = reply.data
-    end
-    if total > facts.history_size then
-      local reply = client:send("zremrangebyrank", facts.global_zset, 0, total - facts.history_size - 1)
-      assert(reply.err == nil, reply.err)
-    end
+    local reply = client:send("zremrangebyrank", facts.global_zset, 0, total - facts.history_size - 1)
+    assert(reply.err == nil, reply.err)
   end
 end
 
@@ -95,31 +86,33 @@ end
 function M.setup(sockpath)
   assert(sockpath)
   facts.client_factory = function() return RedisClient.connect_unix(sockpath) end
+end
 
-  do --to record and save oldfiles
-    -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
-    api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
-      group = facts.aug,
-      callback = function(args)
-        local bufnr = args.buf
-        local path = resolve_fpath(bufnr)
-        if path == nil then return end
-        state:record_history(os.time(), path)
-      end,
-    })
-    api.nvim_create_autocmd({ "focuslost", "vimsuspend", "vimleavepre" }, {
-      group = facts.aug,
-      callback = function() state:persist_history() end,
-    })
-    api.nvim_create_autocmd("vimleave", {
-      group = facts.aug,
-      callback = function()
-        assert(#state._history == 0, "history should be persisted before vimleave")
-        state:prune_history()
-        state:close_client()
-      end,
-    })
-  end
+function M.init()
+  M.init = nil
+
+  -- learnt these timings from https://github.com/ii14/dotfiles/blob/master/.config/nvim/lua/mru.lua
+  api.nvim_create_autocmd({ "bufenter", "bufwritepost" }, {
+    group = facts.aug,
+    callback = function(args)
+      local bufnr = args.buf
+      local path = resolve_fpath(bufnr)
+      if path == nil then return end
+      state:record_history(os.time(), path)
+    end,
+  })
+  api.nvim_create_autocmd({ "focuslost", "vimsuspend", "vimleavepre" }, {
+    group = facts.aug,
+    callback = function() state:persist_history() end,
+  })
+  api.nvim_create_autocmd("vimleave", {
+    group = facts.aug,
+    callback = function()
+      assert(#state._history == 0, "history should be persisted before vimleave")
+      state:trim_history()
+      state:close_client()
+    end,
+  })
 end
 
 --show oldfiles in a floatwin
