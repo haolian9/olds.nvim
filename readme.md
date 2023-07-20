@@ -1,16 +1,13 @@
 an opinionated 'oldfiles' impl for nvim
 
 ## features
-* global old files
-* storing data in redis
-* limited history size
-* programming apis: for fond.nvim
-* :oldfiles
+* limited history among nvim instances
+* record = path + line + col
+* redis as the persistent target
 
 ## status
 * it just works (tm)
-* it is feature-freezed
-* it can only connect to redis's unix socket
+* it can only connect to redis's unix socket right now
 
 ## prerequisites
 * linux
@@ -19,6 +16,5 @@ an opinionated 'oldfiles' impl for nvim
 
 ## usage
 * `.setup('/run/user/1000/redis.sock')`
-* `.auto()` # register autocmd to record visited files int redis
-* `.oldfiles()` # equal to `:oldfiles`
-* for more uses please have a look at `lua/{init,RedisClient}.lua`
+* `.init()` for automatically recording
+* `.oldfiles()`, `.dump()`, `.reset()`, `.prune()`
