@@ -3,7 +3,7 @@ local M = {}
 local bufrename = require("infra.bufrename")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
-local jelly = require("infra.jellyfish")("olds", "debug")
+local jelly = require("infra.jellyfish")("olds")
 local popupgeo = require("infra.popupgeo")
 local prefer = require("infra.prefer")
 local strlib = require("infra.strlib")
@@ -190,12 +190,16 @@ function M.dump(outfile)
 
   local poses
   do
-    local reply = client:send("HMGET", facts.pos_id, unpack(paths))
-    assert(reply.err == nil, reply.err)
-    poses = reply.data
-    assert(type(poses) == "table")
-    --there could be holes in this lua-table
-    assert(#poses == #paths)
+    if #paths == 0 then
+      poses = {}
+    else
+      local reply = client:send("HMGET", facts.pos_id, unpack(paths))
+      assert(reply.err == nil, reply.err)
+      poses = reply.data
+      assert(type(poses) == "table")
+      --there could be holes in this lua-table
+      assert(#poses == #paths)
+    end
   end
 
   do
