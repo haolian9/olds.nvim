@@ -1,7 +1,8 @@
 local M = {}
 
-local protocol = require("olds.protocol")
 local listlib = require("infra.listlib")
+
+local protocol = require("olds.protocol")
 
 local uv = vim.loop
 local co = coroutine

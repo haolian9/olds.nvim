@@ -2,8 +2,8 @@
 
 local fn = require("infra.fn")
 
-local unpack = require("olds.protocol.unpack")
 local Stash = require("olds.protocol.Stash")
+local unpack = require("olds.protocol.unpack")
 
 local co = coroutine
 
