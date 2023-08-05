@@ -1,6 +1,7 @@
 local M = {}
 
 local bufrename = require("infra.bufrename")
+local Ephemeral = require("infra.Ephemeral")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
@@ -163,10 +164,7 @@ function M.oldfiles()
 
   local bufnr
   do
-    bufnr = api.nvim_create_buf(false, true)
-    prefer.bo(bufnr, "bufhidden", "wipe")
-    api.nvim_buf_set_lines(bufnr, 0, 1, false, { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "" })
-    api.nvim_buf_set_lines(bufnr, 2, -1, false, records)
+    bufnr = Ephemeral(nil, { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "", records })
     bufrename(bufnr, "olds://history")
   end
 
