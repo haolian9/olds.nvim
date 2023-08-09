@@ -236,7 +236,6 @@ function M.prune()
   local running, danglings = #records, {}
 
   do
-    -- todo: dealloc?
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
@@ -252,7 +251,6 @@ function M.prune()
       end
     )
     for _, fpath in ipairs(records) do
-      --todo: '{path}:{line}:{col}'
       uv.queue_work(work, fpath)
     end
   end

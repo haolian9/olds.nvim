@@ -1,7 +1,5 @@
 local co = coroutine
 
--- todo: stash=['+OK\r', '\n'] peekuntil('\r\n')
-
 ---@class olds.protocol.Stash
 ---@field private store string[]
 local Stash = {}
