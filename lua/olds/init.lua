@@ -1,6 +1,6 @@
 local M = {}
 
-local bufrename = require("infra.bufrename")
+local dictlib = require("infra.dictlib")
 local Ephemeral = require("infra.Ephemeral")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
@@ -164,13 +164,13 @@ function M.oldfiles()
 
   local bufnr
   do
-    bufnr = Ephemeral(nil, { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "", records })
-    bufrename(bufnr, "olds://history")
+    local lines = { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "", records }
+    bufnr = Ephemeral({ name = "olds://history" }, lines)
   end
 
   do
-    local width, height, top_row, left_col = popupgeo.editor_central(0.8, 0.8)
-    api.nvim_open_win(bufnr, true, { relative = "editor", style = "minimal", row = top_row, col = left_col, width = width, height = height })
+    local winopts = dictlib.merged({ relative = "editor" }, popupgeo.editor(0.8, 0.8))
+    api.nvim_open_win(bufnr, true, winopts)
   end
 end
 
