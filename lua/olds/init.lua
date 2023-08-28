@@ -1,11 +1,10 @@
 local M = {}
 
-local dictlib = require("infra.dictlib")
 local Ephemeral = require("infra.Ephemeral")
+local rifts = require("infra.rifts")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
-local popupgeo = require("infra.popupgeo")
 local prefer = require("infra.prefer")
 local strlib = require("infra.strlib")
 
@@ -168,10 +167,7 @@ function M.oldfiles()
     bufnr = Ephemeral({ name = "olds://history" }, lines)
   end
 
-  do
-    local winopts = dictlib.merged({ relative = "editor" }, popupgeo.editor(0.8, 0.8))
-    api.nvim_open_win(bufnr, true, winopts)
-  end
+  rifts.open.fragment(bufnr, true, { relative = "editor" }, { width = 0.8, height = 0.8 })
 end
 
 ---dump the whole history into the given file
