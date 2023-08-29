@@ -1,11 +1,12 @@
 local M = {}
 
+local Augroup = require("infra.Augroup")
 local Ephemeral = require("infra.Ephemeral")
-local rifts = require("infra.rifts")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
 local jelly = require("infra.jellyfish")("olds")
 local prefer = require("infra.prefer")
+local rifts = require("infra.rifts")
 local strlib = require("infra.strlib")
 
 local RedisClient = require("olds.RedisClient")
@@ -15,7 +16,6 @@ local uv = vim.loop
 
 local facts = {}
 do
-  facts.augrp = api.nvim_create_augroup("olds", {})
   local uid = uv.getuid()
   facts.ranks_id = string.format("%s:nvim:olds:ranks", uid)
   ---a redis hash; field={path}, value=‘{line}:{col}’
@@ -129,13 +129,12 @@ end
 function M.init()
   M.init = nil
 
-  api.nvim_create_autocmd("bufwinleave", {
-    group = facts.augrp,
+  local aug = Augroup("olds")
+  aug:repeats("bufwinleave", {
     callback = function() history:record(api.nvim_get_current_win()) end,
   })
 
-  api.nvim_create_autocmd("vimleavepre", {
-    group = facts.augrp,
+  aug:repeats("vimleavepre", {
     callback = function()
       for _, winid in ipairs(api.nvim_list_wins()) do
         history:record(winid)
@@ -143,7 +142,7 @@ function M.init()
     end,
   })
 
-  api.nvim_create_autocmd({ "focuslost", "vimleave" }, {
+  aug:repeats({ "focuslost", "vimleave" }, {
     group = facts.augrp,
     callback = function() history:persist() end,
   })
