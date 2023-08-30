@@ -129,7 +129,7 @@ end
 function M.init()
   M.init = nil
 
-  local aug = Augroup("olds")
+  local aug = Augroup("olds://")
   aug:repeats("bufwinleave", {
     callback = function() history:record(api.nvim_get_current_win()) end,
   })
