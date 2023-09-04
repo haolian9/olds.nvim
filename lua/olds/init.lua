@@ -150,20 +150,20 @@ end
 
 --show the whole history in a floatwin
 function M.oldfiles()
-  local records, elapsed_ns
+  local records
   do
-    local ben_start = uv.hrtime()
+    local start_time = uv.hrtime()
     local reply = client:send("ZRANGE", facts.ranks_id, 0, -1, "REV")
     assert(reply.err == nil, reply.err)
     records = reply.data
-    elapsed_ns = uv.hrtime() - ben_start
+    local elapsed_ns = uv.hrtime() - start_time
     assert(type(records) == "table")
+    jelly.info("querying oldfiles took %.3fms", elapsed_ns / 1000000)
   end
 
   local bufnr
   do
-    local lines = { string.format("(elapsed %.3f ms)", elapsed_ns / 1000000), "", records }
-    bufnr = Ephemeral({ name = "olds://history" }, lines)
+    bufnr = Ephemeral({ namepat = "olds://history/{bufnr}", handyclose = true }, records)
   end
 
   rifts.open.fragment(bufnr, true, { relative = "editor" }, { width = 0.8, height = 0.8 })
