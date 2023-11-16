@@ -1,11 +1,14 @@
 local M = {}
 
 local listlib = require("infra.listlib")
+local logging = require("infra.logging")
 
 local protocol = require("olds.protocol")
 
 local uv = vim.loop
 local co = coroutine
+
+local log = logging.newlogger("RedisClient", "info")
 
 ---@class olds.Reply
 ---@field data? string|number|string[]
@@ -103,6 +106,7 @@ function M.connect_unix(sockpath)
     if err then
       fatal("read error: %s", err)
     elseif data then
+      log.debug("%s\n", data)
       client:recv(data)
     else
       client.closed = true

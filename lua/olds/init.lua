@@ -130,11 +130,11 @@ function M.init()
   M.init = nil
 
   local aug = Augroup("olds://")
-  aug:repeats("bufwinleave", {
+  aug:repeats("BufWinLeave", {
     callback = function() history:record(api.nvim_get_current_win()) end,
   })
 
-  aug:repeats("vimleavepre", {
+  aug:repeats("VimLeavePre", {
     callback = function()
       for _, winid in ipairs(api.nvim_list_wins()) do
         history:record(winid)
@@ -142,7 +142,7 @@ function M.init()
     end,
   })
 
-  aug:repeats({ "focuslost", "vimleave" }, {
+  aug:repeats({ "FocusLost", "VimLeave" }, {
     group = facts.augrp,
     callback = function() history:persist() end,
   })
@@ -161,10 +161,7 @@ function M.oldfiles()
     jelly.info("querying oldfiles took %.3fms", elapsed_ns / 1000000)
   end
 
-  local bufnr
-  do
-    bufnr = Ephemeral({ namepat = "olds://history/{bufnr}", handyclose = true }, records)
-  end
+  local bufnr = Ephemeral({ namepat = "olds://history/{bufnr}", handyclose = true }, records)
 
   rifts.open.fragment(bufnr, true, { relative = "editor" }, { width = 0.8, height = 0.8 })
 end
@@ -182,17 +179,15 @@ function M.dump(outfile)
   end
 
   local poses
-  do
-    if #paths == 0 then
-      poses = {}
-    else
-      local reply = client:send("HMGET", facts.pos_id, unpack(paths))
-      assert(reply.err == nil, reply.err)
-      poses = reply.data
-      assert(type(poses) == "table")
-      --there could be holes in this lua-table
-      assert(#poses == #paths)
-    end
+  if #paths == 0 then
+    poses = {}
+  else
+    local reply = client:send("HMGET", facts.pos_id, unpack(paths))
+    assert(reply.err == nil, reply.err)
+    poses = reply.data
+    assert(type(poses) == "table")
+    --there could be holes in this lua-table
+    assert(#poses == #paths)
   end
 
   do
@@ -234,7 +229,7 @@ function M.prune()
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
-        local _, _, err = vim.loop.fs_stat(fpath)
+        local _, _, err = uv.fs_stat(fpath)
         return fpath, err ~= "ENOENT"
       end,
       ---@param fpath string

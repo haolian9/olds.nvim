@@ -57,7 +57,7 @@ return function(stash)
             local str_part = await_join(stash.popn, stash, len + 2)
             table.insert(list, string.sub(str_part, 1, -3))
           elseif len == -1 then
-            error("unreachable: a nil element")
+            error("unreachable: a nil element; head_part='%s'" .. vim.inspect(head_part))
           else
             error("unreachable: len < -1")
           end
