@@ -229,7 +229,7 @@ function M.prune()
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
-        local _, _, err = uv.fs_stat(fpath)
+        local _, _, err = vim.loop.fs_stat(fpath)
         return fpath, err ~= "ENOENT"
       end,
       ---@param fpath string
