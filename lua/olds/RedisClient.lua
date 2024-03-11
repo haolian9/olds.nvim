@@ -116,9 +116,45 @@ function M.connect_unix(sockpath)
   return client
 end
 
+--todo: reuse some code with connect_unix
 function M.connect_tcp(ip, port)
-  local _, _ = ip, port
-  error("not implemented")
+  ---@diagnostic disable: invisible
+
+  local client
+  do
+    local state = {}
+    do
+      state.sock = assert(uv.new_tcp())
+      state.closed = nil
+      state.replies = {}
+      state.stash = protocol.Stash()
+      state.unpacker = protocol.unpack(state.stash)
+    end
+
+    client = setmetatable(state, Client)
+  end
+
+  uv.tcp_connect(client.sock, ip, port, function(err)
+    if err == nil then
+      client.closed = false
+    else
+      client.closed = true
+      fatal("establish error: %s", err)
+    end
+  end)
+
+  uv.read_start(client.sock, function(err, data)
+    if err then
+      fatal("read error: %s", err)
+    elseif data then
+      log.debug("%s\n", data)
+      client:recv(data)
+    else
+      client.closed = true
+    end
+  end)
+
+  return client
 end
 
 return M
