@@ -74,87 +74,72 @@ do
   end
 end
 
----@param sockpath string
----@return olds.Client
-function M.connect_unix(sockpath)
-  ---@diagnostic disable: invisible
+do
+  ---@param create_sock fun(client: olds.Client): userdata
+  ---@return olds.Client
+  local function create_client(create_sock)
+    ---@diagnostic disable: invisible
 
-  local client
-  do
     local state = {}
     do
-      state.sock = assert(uv.new_pipe())
+      state.sock = nil
       state.closed = nil
       state.replies = {}
       state.stash = protocol.Stash()
       state.unpacker = protocol.unpack(state.stash)
     end
 
-    client = setmetatable(state, Client)
+    local client = setmetatable(state, Client)
+
+    client.sock = create_sock(client)
+
+    uv.read_start(client.sock, function(err, data)
+      if err then
+        fatal("read error: %s", err)
+      elseif data then
+        log.debug("%s\n", data)
+        client:recv(data)
+      else
+        client.closed = true
+      end
+    end)
+
+    return client
   end
 
-  uv.pipe_connect(client.sock, sockpath, function(err)
-    if err == nil then
-      client.closed = false
-    else
-      client.closed = true
-      fatal("establish error: %s", err)
-    end
-  end)
-
-  uv.read_start(client.sock, function(err, data)
-    if err then
-      fatal("read error: %s", err)
-    elseif data then
-      log.debug("%s\n", data)
-      client:recv(data)
-    else
-      client.closed = true
-    end
-  end)
-
-  return client
-end
-
---todo: reuse some code with connect_unix
-function M.connect_tcp(ip, port)
-  ---@diagnostic disable: invisible
-
-  local client
-  do
-    local state = {}
-    do
-      state.sock = assert(uv.new_tcp())
-      state.closed = nil
-      state.replies = {}
-      state.stash = protocol.Stash()
-      state.unpacker = protocol.unpack(state.stash)
-    end
-
-    client = setmetatable(state, Client)
+  ---@param sockpath string
+  ---@return olds.Client
+  function M.connect_unix(sockpath)
+    return create_client(function(client)
+      local sock = assert(uv.new_pipe())
+      uv.pipe_connect(sock, sockpath, function(err)
+        if err == nil then
+          client.closed = false
+        else
+          client.closed = true
+          fatal("establish error: %s", err)
+        end
+      end)
+      return sock
+    end)
   end
 
-  uv.tcp_connect(client.sock, ip, port, function(err)
-    if err == nil then
-      client.closed = false
-    else
-      client.closed = true
-      fatal("establish error: %s", err)
-    end
-  end)
-
-  uv.read_start(client.sock, function(err, data)
-    if err then
-      fatal("read error: %s", err)
-    elseif data then
-      log.debug("%s\n", data)
-      client:recv(data)
-    else
-      client.closed = true
-    end
-  end)
-
-  return client
+  ---@param ip string
+  ---@param port integer
+  ---@return olds.Client
+  function M.connect_tcp(ip, port)
+    return create_client(function(client)
+      local sock = assert(uv.new_tcp())
+      uv.tcp_connect(sock, ip, port, function(err)
+        if err == nil then
+          client.closed = false
+        else
+          client.closed = true
+          fatal("establish error: %s", err)
+        end
+      end)
+      return sock
+    end)
+  end
 end
-
 return M
