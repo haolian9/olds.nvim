@@ -229,8 +229,8 @@ function M.prune()
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
-        local _, _, err = vim.loop.fs_stat(fpath)
-        return fpath, err ~= "ENOENT"
+        local exists = vim.loop.fs_stat(fpath) ~= nil
+        return fpath, exists
       end,
       ---@param fpath string
       ---@param exists boolean
