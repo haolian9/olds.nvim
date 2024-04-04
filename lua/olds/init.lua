@@ -1,6 +1,6 @@
 local M = {}
 
-local Augroup = require("infra.Augroup")
+local augroups = require("infra.augroups")
 local Ephemeral = require("infra.Ephemeral")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
@@ -129,7 +129,7 @@ end
 function M.init()
   M.init = nil
 
-  local aug = Augroup("olds://")
+  local aug = augroups.Augroup("olds://")
   aug:repeats("BufWinLeave", {
     callback = function() history:record(api.nvim_get_current_win()) end,
   })
