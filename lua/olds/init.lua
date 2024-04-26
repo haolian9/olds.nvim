@@ -9,8 +9,6 @@ local prefer = require("infra.prefer")
 local rifts = require("infra.rifts")
 local strlib = require("infra.strlib")
 
-local RedisClient = require("olds.RedisClient")
-
 local api = vim.api
 local uv = vim.loop
 
@@ -21,7 +19,7 @@ do
   ---a redis hash; field={path}, value=‘{line}:{col}’
   facts.pos_id = string.format("%s:nvim:olds:poses", uid)
   ---@type fun():olds.Client
-  facts.client_factory = nil
+  facts.create_client = nil
 end
 
 local contracts = {}
@@ -66,7 +64,7 @@ local client = setmetatable({}, {
     local v
     if k == "host" then
       --todo: reconnect
-      v = assert(facts.client_factory)()
+      v = assert(facts.create_client)()
     else
       v = function(_, ...) return t.host[k](t.host, ...) end
     end
@@ -120,11 +118,8 @@ do
   end
 end
 
----@param sockpath string @the absolute path to redis unix socket
-function M.setup(sockpath)
-  assert(sockpath)
-  facts.client_factory = function() return RedisClient.connect_unix(sockpath) end
-end
+---@param create_client fun(): olds.Client
+function M.setup(create_client) facts.create_client = create_client end
 
 function M.init()
   M.init = nil
@@ -265,6 +260,13 @@ function M.prune()
       end)
     end)
   end
+end
+
+function M.ping()
+  local reply = client:send("PING")
+  assert(reply.err == nil, reply.err)
+  assert(reply.data == "PONG")
+  jelly.info("PONG")
 end
 
 return M
