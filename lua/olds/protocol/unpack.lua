@@ -9,7 +9,7 @@ local function await_raw(fn, ...)
   end
 end
 
-local function await_join(fn, ...) return table.concat(await_raw(fn, ...), "") end
+local function await_join(fn, ...) return table.concat(await_raw(fn, ...)) end
 
 --possible yield value forms
 --* false, nil, nil

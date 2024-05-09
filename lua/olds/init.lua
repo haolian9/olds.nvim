@@ -1,6 +1,7 @@
 local M = {}
 
 local augroups = require("infra.augroups")
+local wincursor = require("infra.wincursor")
 local Ephemeral = require("infra.Ephemeral")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
@@ -16,7 +17,7 @@ local facts = {}
 do
   local uid = uv.getuid()
   facts.ranks_id = string.format("%s:nvim:olds:ranks", uid)
-  ---a redis hash; field={path}, value=‘{line}:{col}’
+  ---a redis hash; field={path}, value=‘{lnum}:{col}’
   facts.pos_id = string.format("%s:nvim:olds:poses", uid)
   ---@type fun():olds.Client
   facts.create_client = nil
@@ -42,20 +43,20 @@ do
     if fs.is_absolute(bufname) then return bufname end
     return vim.fn.expand("%:p", bufname)
   end
-  ---pattern='{path}:{line}:{col}'; line and col start from 0
+  ---pattern='{path}:{lnum}:{col}'; lnum and col start from 0
   ---@param pos string
-  ---@return integer,integer @line, col
+  ---@return integer,integer @lnum, col
   function contracts.parse_pos(pos)
-    local line, col = string.match(pos, [[^%d+:%d+$]])
-    assert(line and col)
-    line = assert(tonumber(line))
+    local lnum, col = string.match(pos, [[^%d+:%d+$]])
+    assert(lnum and col)
+    lnum = assert(tonumber(lnum))
     col = assert(tonumber(col))
-    return line, col
+    return lnum, col
   end
-  ---@param line integer @start from 0
+  ---@param lnum integer @start from 0
   ---@param col integer @start from 0
   ---@return string
-  function contracts.format_pos(line, col) return string.format("%d:%d", line, col) end
+  function contracts.format_pos(lnum, col) return string.format("%d:%d", lnum, col) end
 end
 
 ---@type olds.Client
@@ -76,7 +77,7 @@ local client = setmetatable({}, {
 local history = {}
 do
   ---@private
-  ---@type {[string]: {last_seen: integer, line: integer, col: integer}}
+  ---@type {[string]: {last_seen: integer, lnum: integer, col: integer}}
   history.records = {}
 
   ---@param winid integer
@@ -84,8 +85,8 @@ do
     local bufnr = api.nvim_win_get_buf(winid)
     local path = contracts.resolve_fpath(bufnr)
     if path == nil then return end
-    local cursor = api.nvim_win_get_cursor(winid)
-    self.records[path] = { last_seen = os.time(), line = cursor[1] - 1, col = cursor[2] }
+    local cursor = wincursor.position(winid)
+    self.records[path] = { last_seen = os.time(), lnum = cursor.lnum, col = cursor.col }
   end
 
   function history:persist()
@@ -109,7 +110,7 @@ do
       local poses = {}
       for path, record in pairs(records) do
         table.insert(poses, path)
-        table.insert(poses, contracts.format_pos(record.line, record.col))
+        table.insert(poses, contracts.format_pos(record.lnum, record.col))
       end
       local reply = client:send("HSET", facts.pos_id, unpack(poses))
       assert(reply.err == nil, reply.err)
