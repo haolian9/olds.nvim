@@ -1,7 +1,6 @@
 local M = {}
 
 local augroups = require("infra.augroups")
-local wincursor = require("infra.wincursor")
 local Ephemeral = require("infra.Ephemeral")
 local fn = require("infra.fn")
 local fs = require("infra.fs")
@@ -9,6 +8,9 @@ local jelly = require("infra.jellyfish")("olds")
 local prefer = require("infra.prefer")
 local rifts = require("infra.rifts")
 local strlib = require("infra.strlib")
+local wincursor = require("infra.wincursor")
+
+local g = require("cricket.g")
 
 local api = vim.api
 local uv = vim.loop
@@ -19,8 +21,6 @@ do
   facts.ranks_id = string.format("%s:nvim:olds:ranks", uid)
   ---a redis hash; field={path}, value=‘{lnum}:{col}’
   facts.pos_id = string.format("%s:nvim:olds:poses", uid)
-  ---@type fun():olds.Client
-  facts.create_client = nil
 end
 
 local contracts = {}
@@ -65,7 +65,7 @@ local client = setmetatable({}, {
     local v
     if k == "host" then
       --todo: reconnect
-      v = assert(facts.create_client)()
+      v = assert(g.create_client)()
     else
       v = function(_, ...) return t.host[k](t.host, ...) end
     end
@@ -118,9 +118,6 @@ do
     end
   end
 end
-
----@param create_client fun(): olds.Client
-function M.setup(create_client) facts.create_client = create_client end
 
 function M.init()
   M.init = nil
