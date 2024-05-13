@@ -1,4 +1,4 @@
-an opinionated 'oldfiles' impl for nvim
+an opinionated 'oldfiles' impl
 
 ## features
 * limited history among nvim instances
@@ -6,15 +6,15 @@ an opinionated 'oldfiles' impl for nvim
 * redis as the persistent target
 
 ## status
-* it just works (tm)
-* it can only connect to redis's unix socket right now
+* just works
 
 ## prerequisites
 * linux
 * redis >= 7.*
 * nvim 0.9.*
+* haolian9/infra.nvim
 
 ## usage
-* `.setup('/run/user/1000/redis.sock')`
+* `require'infra.G'('olds').create_client = function() return require('olds.RedisClient').connect_unix('/run/user/1000/redis.sock') end`
 * `.init()` for automatically recording
 * `.oldfiles()`, `.dump()`, `.reset()`, `.prune()`
