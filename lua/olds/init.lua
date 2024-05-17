@@ -10,7 +10,7 @@ local rifts = require("infra.rifts")
 local strlib = require("infra.strlib")
 local wincursor = require("infra.wincursor")
 
-local g = require("cricket.g")
+local g = require("olds.g")
 
 local api = vim.api
 local uv = vim.loop

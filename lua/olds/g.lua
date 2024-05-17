@@ -1,4 +1,7 @@
----@class olds.g
+---@class olds.G
 ---@field create_client fun(): olds.Client
 
-return require("infra.G")("olds")
+---@type olds.G
+local g = require("infra.G")("olds")
+
+return g
