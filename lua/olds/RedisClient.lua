@@ -5,7 +5,7 @@ local logging = require("infra.logging")
 
 local protocol = require("olds.protocol")
 
-local uv = vim.loop
+local uv = vim.uv
 local co = coroutine
 
 local log = logging.newlogger("RedisClient", "info")

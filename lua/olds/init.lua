@@ -13,7 +13,7 @@ local wincursor = require("infra.wincursor")
 local g = require("olds.g")
 
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local facts = {}
 do
@@ -222,7 +222,7 @@ function M.prune()
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
-        local exists = vim.loop.fs_stat(fpath) ~= nil
+        local exists = uv.fs_stat(fpath) ~= nil
         return fpath, exists
       end,
       ---@param fpath string
