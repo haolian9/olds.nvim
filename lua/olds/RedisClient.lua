@@ -25,7 +25,7 @@ local function fatal(fmt, ...)
 end
 
 ---@class olds.Client
----@field private sock any
+---@field private sock userdata
 ---@field private closed boolean
 ---@field private replies olds.Reply[]
 ---@field private stash olds.protocol.Stash

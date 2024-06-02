@@ -41,7 +41,7 @@ do
     if strlib.find(bufname, "/.git/") then return end
 
     if fs.is_absolute(bufname) then return bufname end
-    return vim.fn.expand("%:p", bufname)
+    return vim.fn.fnamemodify(bufname, "%:p")
   end
   ---pattern='{path}:{lnum}:{col}'; lnum and col start from 0
   ---@param pos string
