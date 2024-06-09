@@ -4,6 +4,7 @@ local augroups = require("infra.augroups")
 local Ephemeral = require("infra.Ephemeral")
 local fs = require("infra.fs")
 local itertools = require("infra.itertools")
+local its = require("infra.its")
 local jelly = require("infra.jellyfish")("olds")
 local prefer = require("infra.prefer")
 local rifts = require("infra.rifts")
@@ -188,7 +189,7 @@ function M.dump(outfile)
     local ok, err = pcall(function()
       local function fmt(zip) return string.format("%s:%s", zip[1], zip[2]) end
       for batch in itertools.batched(itertools.zip(paths, poses), 256) do
-        local line = itertools.join(itertools.map(fmt, batch), "\n")
+        local line = its(batch):map(fmt):join("\n")
         file:write(line)
         file:write("\n")
       end
