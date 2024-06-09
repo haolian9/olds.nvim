@@ -5,6 +5,7 @@ local Ephemeral = require("infra.Ephemeral")
 local fs = require("infra.fs")
 local itertools = require("infra.itertools")
 local its = require("infra.its")
+local iuv = require("infra.iuv")
 local jelly = require("infra.jellyfish")("olds")
 local prefer = require("infra.prefer")
 local rifts = require("infra.rifts")
@@ -223,7 +224,7 @@ function M.prune()
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
-        local exists = uv.fs_stat(fpath) ~= nil
+        local exists = iuv.fs_stat(fpath) ~= nil
         return fpath, exists
       end,
       ---@param fpath string
@@ -235,15 +236,15 @@ function M.prune()
       end
     )
     for _, fpath in ipairs(records) do
-      uv.queue_work(work, fpath)
+      iuv.queue_work(work, fpath)
     end
   end
 
   do
-    local timer = uv.new_timer()
-    uv.timer_start(timer, 0, 250, function()
+    local timer = iuv.new_timer()
+    iuv.timer_start(timer, 0, 250, function()
       if running > 0 then return end
-      uv.timer_stop(timer)
+      iuv.timer_stop(timer)
       vim.schedule(function()
         if #danglings == 0 then return jelly.info("no need to prune") end
         do

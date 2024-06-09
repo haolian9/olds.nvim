@@ -1,5 +1,6 @@
 local M = {}
 
+local iuv = require("infra.iuv")
 local listlib = require("infra.listlib")
 local logging = require("infra.logging")
 
@@ -40,7 +41,7 @@ do
   function Client:send(cmd, ...)
     assert(not self.closed)
     local packed = protocol.pack(cmd, ...)
-    uv.write(self.sock, packed, function(err)
+    iuv.write(self.sock, packed, function(err)
       if err ~= nil then fatal("write error: %s", err) end
     end)
     vim.wait(FOREVER, function() return self.closed or #self.replies > 0 end, 75)
@@ -93,7 +94,7 @@ do
 
     client.sock = create_sock(client)
 
-    uv.read_start(client.sock, function(err, data)
+    iuv.read_start(client.sock, function(err, data)
       if err then
         fatal("read error: %s", err)
       elseif data then
@@ -111,8 +112,8 @@ do
   ---@return olds.Client
   function M.connect_unix(sockpath)
     return create_client(function(client)
-      local sock = assert(uv.new_pipe())
-      uv.pipe_connect(sock, sockpath, function(err)
+      local sock = assert(iuv.new_pipe())
+      iuv.pipe_connect(sock, sockpath, function(err)
         if err == nil then
           client.closed = false
         else
@@ -129,8 +130,8 @@ do
   ---@return olds.Client
   function M.connect_tcp(ip, port)
     return create_client(function(client)
-      local sock = assert(uv.new_tcp())
-      uv.tcp_connect(sock, ip, port, function(err)
+      local sock = assert(iuv.new_tcp())
+      iuv.tcp_connect(sock, ip, port, function(err)
         if err == nil then
           client.closed = false
         else
