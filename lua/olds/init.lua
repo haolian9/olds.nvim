@@ -7,14 +7,13 @@ local itertools = require("infra.itertools")
 local its = require("infra.its")
 local iuv = require("infra.iuv")
 local jelly = require("infra.jellyfish")("olds")
+local ni = require("infra.ni")
 local prefer = require("infra.prefer")
 local rifts = require("infra.rifts")
 local strlib = require("infra.strlib")
 local wincursor = require("infra.wincursor")
 
 local g = require("olds.g")
-
-local api = vim.api
 local uv = vim.uv
 
 local facts = {}
@@ -32,7 +31,7 @@ do
   function contracts.resolve_fpath(bufnr)
     -- a 'regular file' buffer
     if prefer.bo(bufnr, "buftype") ~= "" then return end
-    local bufname = api.nvim_buf_get_name(bufnr)
+    local bufname = ni.buf_get_name(bufnr)
     -- named
     if bufname == "" then return end
     -- plugin
@@ -84,7 +83,7 @@ do
 
   ---@param winid integer
   function history:record(winid)
-    local bufnr = api.nvim_win_get_buf(winid)
+    local bufnr = ni.win_get_buf(winid)
     local path = contracts.resolve_fpath(bufnr)
     if path == nil then return end
     local cursor = wincursor.position(winid)
@@ -126,12 +125,12 @@ function M.init()
 
   local aug = augroups.Augroup("olds://")
   aug:repeats("BufWinLeave", {
-    callback = function() history:record(api.nvim_get_current_win()) end,
+    callback = function() history:record(ni.get_current_win()) end,
   })
 
   aug:repeats("VimLeavePre", {
     callback = function()
-      for _, winid in ipairs(api.nvim_list_wins()) do
+      for _, winid in ipairs(ni.list_wins()) do
         history:record(winid)
       end
     end,
@@ -224,7 +223,8 @@ function M.prune()
     local work = uv.new_work(
       ---@param fpath string
       function(fpath)
-        local exists = iuv.fs_stat(fpath) ~= nil
+        --in uv thread, iuv's invailable here
+        local exists = vim.uv.fs_stat(fpath) ~= nil
         return fpath, exists
       end,
       ---@param fpath string
