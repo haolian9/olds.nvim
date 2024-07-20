@@ -35,11 +35,11 @@ do
     -- named
     if bufname == "" then return end
     -- plugin
-    if strlib.find(bufname, "://") then return end
+    if strlib.contains(bufname, "://") then return end
     -- /tmp
     if strlib.startswith(bufname, "/tmp/") then return end
     -- .git/COMMIT_EDITMSG
-    if strlib.find(bufname, "/.git/") then return end
+    if strlib.contains(bufname, "/.git/") then return end
 
     if fs.is_absolute(bufname) then return bufname end
     return vim.fn.fnamemodify(bufname, "%:p")
