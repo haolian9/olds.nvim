@@ -1,6 +1,7 @@
 local M = {}
 
 local iuv = require("infra.iuv")
+local jelly = require("infra.jellyfish")("olds.RedisClient", "debug")
 local listlib = require("infra.listlib")
 local logging = require("infra.logging")
 
@@ -16,14 +17,6 @@ local log = logging.newlogger("RedisClient", "info")
 ---@field err? string
 
 local FOREVER = math.pow(2, 31) - 1
-
-local function fatal(fmt, ...)
-  if select("#", ...) == 0 then
-    error(fmt)
-  else
-    error(string.format(fmt, ...))
-  end
-end
 
 ---@class olds.Client
 ---@field private sock userdata
@@ -42,11 +35,11 @@ do
     assert(not self.closed)
     local packed = protocol.pack(cmd, ...)
     iuv.write(self.sock, packed, function(err)
-      if err ~= nil then fatal("write error: %s", err) end
+      if err ~= nil then jelly.fatal("write error: %s", err) end
     end)
     vim.wait(FOREVER, function() return self.closed or #self.replies > 0 end, 75)
     if #self.replies > 0 then return listlib.pop(self.replies) end
-    if self.closed then fatal("connection closed during round trip") end
+    if self.closed then jelly.fatal("connection closed during round trip") end
     -- could be ctrl-c by user
     error("unreachable: unexpected situation")
   end
@@ -54,7 +47,7 @@ do
   function Client:close()
     uv.close(self.sock, function(err)
       self.closed = true
-      if err ~= nil then fatal("close error: %s", err) end
+      if err ~= nil then jelly.fatal("close error: %s", err) end
     end)
   end
 
@@ -68,7 +61,7 @@ do
         if data == "wait for new data" then return end
         do -- crash on unexpected errors
           Client:close()
-          fatal(data)
+          jelly.fatal(data)
         end
       end
     end
@@ -96,7 +89,7 @@ do
 
     iuv.read_start(client.sock, function(err, data)
       if err then
-        fatal("read error: %s", err)
+        jelly.fatal("read error: %s", err)
       elseif data then
         log.debug("%s\n", data)
         client:recv(data)
@@ -118,7 +111,7 @@ do
           client.closed = false
         else
           client.closed = true
-          fatal("establish error: %s", err)
+          jelly.fatal("establish error: %s", err)
         end
       end)
       return sock
@@ -136,7 +129,7 @@ do
           client.closed = false
         else
           client.closed = true
-          fatal("establish error: %s", err)
+          jelly.fatal("establish error: %s", err)
         end
       end)
       return sock
