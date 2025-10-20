@@ -22,6 +22,8 @@ do
   facts.ranks_id = string.format("%s:nvim:olds:ranks", uid)
   ---a redis hash; field={path}, value=‘{lnum}:{col}’
   facts.pos_id = string.format("%s:nvim:olds:poses", uid)
+
+  facts.aug = "olds://"
 end
 
 local contracts = {}
@@ -120,10 +122,8 @@ do
   end
 end
 
-function M.init()
-  M.init = nil
-
-  local aug = augroups.Augroup("olds://")
+function M.start_recording()
+  local aug = augroups.Augroup(facts.aug)
   aug:repeats("BufWinLeave", {
     callback = function() history:record(ni.get_current_win()) end,
   })
@@ -142,8 +142,12 @@ function M.init()
   })
 end
 
+function M.stop_recording()
+  ni.del_augroup_by_name(facts.aug)
+end
+
 --show the whole history in a floatwin
-function M.oldfiles()
+function M.show_history()
   local records
   do
     local start_time = uv.hrtime()
@@ -202,13 +206,13 @@ function M.dump(outfile)
 end
 
 ---reset the history
-function M.reset()
+function M.reset_history()
   local reply = client:send("DEL", facts.ranks_id, facts.pos_id)
   assert(reply.err == nil, reply.err)
 end
 
 ---prune those files were deleted already
-function M.prune()
+function M.prune_history()
   local records
   do
     local reply = client:send("ZRANGE", facts.ranks_id, 0, -1, "rev")
