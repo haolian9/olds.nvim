@@ -10,11 +10,21 @@ an opinionated 'oldfiles' impl
 
 ## prerequisites
 * linux
-* redis >= 7.*
+* valkey 8.1.* or redis 7.*
 * nvim 0.10.*
 * haolian9/infra.nvim
 
 ## usage
-* necessary config: `require'infra.G'('olds').create_client = function() return require('olds.RedisClient').connect_unix('/run/user/1000/redis.sock') end`
-* `.init()` for automatically recording
-* `.oldfiles()`, `.dump()`, `.reset()`, `.prune()`
+
+preflight:
+```
+require'infra.G'('olds').create_client = function()
+  return require('olds.RedisClient').connect_unix('/run/user/1000/redis.sock')
+end
+```
+
+apis:
+* start_recording, stop_recording
+* show_history, reset_history, prune_history
+* dump
+* ping
