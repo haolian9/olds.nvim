@@ -142,9 +142,7 @@ function M.start_recording()
   })
 end
 
-function M.stop_recording()
-  ni.del_augroup_by_name(facts.aug)
-end
+function M.stop_recording() ni.del_augroup_by_name(facts.aug) end
 
 --show the whole history in a floatwin
 function M.show_history()
@@ -223,45 +221,25 @@ function M.prune_history()
 
   local running, danglings = #records, {}
 
-  do
-    local work = uv.new_work(
-      ---@param fpath string
-      function(fpath)
-        --in uv thread, iuv's invailable here
-        local exists = vim.uv.fs_stat(fpath) ~= nil
-        return fpath, exists
-      end,
-      ---@param fpath string
-      ---@param exists boolean
-      function(fpath, exists)
-        running = running - 1
-        if exists then return end
-        table.insert(danglings, fpath)
-      end
-    )
-    for _, fpath in ipairs(records) do
-      iuv.queue_work(work, fpath)
+  local function prune_danglings()
+    if #danglings == 0 then return jelly.info("no need to prune") end
+    do
+      local reply = client:send("ZREM", facts.ranks_id, unpack(danglings))
+      assert(reply.err == nil, reply.err)
+      jelly.info("rm %s/%s members", reply.data, #danglings)
+    end
+    do
+      local reply = client:send("HDEL", facts.pos_id, unpack(danglings))
+      assert(reply.err == nil, reply.err)
+      jelly.info("rm %s/%s poses", reply.data, #danglings)
     end
   end
 
-  do
-    local timer = iuv.new_timer()
-    iuv.timer_start(timer, 0, 250, function()
-      if running > 0 then return end
-      iuv.timer_stop(timer)
-      vim.schedule(function()
-        if #danglings == 0 then return jelly.info("no need to prune") end
-        do
-          local reply = client:send("ZREM", facts.ranks_id, unpack(danglings))
-          assert(reply.err == nil, reply.err)
-          jelly.info("rm %s/%s members", reply.data, #danglings)
-        end
-        do
-          local reply = client:send("HDEL", facts.pos_id, unpack(danglings))
-          assert(reply.err == nil, reply.err)
-          jelly.info("rm %s/%s poses", reply.data, #danglings)
-        end
-      end)
+  for _, fpath in ipairs(records) do
+    vim.uv.fs_stat(fpath, function(err)
+      running = running - 1
+      if err ~= nil then table.insert(danglings, fpath) end
+      if running <= 0 then vim.schedule(prune_danglings) end
     end)
   end
 end
