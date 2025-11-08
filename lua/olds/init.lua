@@ -5,7 +5,6 @@ local Ephemeral = require("infra.Ephemeral")
 local fs = require("infra.fs")
 local itertools = require("infra.itertools")
 local its = require("infra.its")
-local iuv = require("infra.iuv")
 local jelly = require("infra.jellyfish")("olds")
 local ni = require("infra.ni")
 local prefer = require("infra.prefer")
@@ -62,20 +61,34 @@ do
   function contracts.format_pos(lnum, col) return string.format("%d:%d", lnum, col) end
 end
 
----@type olds.Client
-local client = setmetatable({}, {
-  __index = function(t, k)
-    local v
-    if k == "host" then
-      --todo: reconnect
-      v = assert(g.create_client)()
-    else
-      v = function(_, ...) return t.host[k](t.host, ...) end
-    end
-    t[k] = v
-    return v
-  end,
-})
+---@class olds.client
+---@field private created boolean
+---@field private impl olds.Client
+local client = {}
+do
+  client.created = false
+
+  function client:send(...) return self.impl:send(...) end
+
+  --olds.g.create_client will be used eventually
+  function client:reconnect()
+    if self.created then self.impl:close() end
+    self.impl = nil
+    self.created = false
+  end
+
+  -- make client.impl a lazy property
+  client = setmetatable(client, {
+    __index = function(t, k)
+      if k == "impl" then
+        local v = assert(g.create_client, "olds.g.create_client not set")()
+        rawset(t, k, v)
+        rawset(t, "created", true)
+        return v
+      end
+    end,
+  })
+end
 
 local history = {}
 do
@@ -250,5 +263,8 @@ function M.ping()
   assert(reply.data == "PONG")
   jelly.info("PONG")
 end
+
+---olds.g.create_client will be used eventually
+function M.reconnect() client:reconnect() end
 
 return M
