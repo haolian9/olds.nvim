@@ -93,7 +93,7 @@ do
       local _, have_one, data, errdata = assert(co.resume(self.unpacker))
       if have_one then
         local reply = { data = data, err = errdata }
-        --todo: what if reply is for pubsub
+        --todo: pubsub
         local req = assert(listlib.pop(self.reqs))
         vim.schedule(function() req.callback(reply) end)
       else
