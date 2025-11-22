@@ -179,7 +179,9 @@ end
 ---@param outfile string
 ---@return boolean
 function M.dump(outfile)
-  local paths
+  ---@type string[], string[]
+  local paths, poses = {}, {}
+
   do
     local reply = client:send("ZRANGE", facts.ranks_id, 0, -1, "REV")
     assert(reply.err == nil, reply.err)
@@ -187,23 +189,29 @@ function M.dump(outfile)
     assert(type(paths) == "table")
   end
 
-  local poses
-  if #paths == 0 then
-    poses = {}
-  else
+  if #paths == 0 then goto dump end
+
+  do
     local reply = client:send("HMGET", facts.pos_id, unpack(paths))
     assert(reply.err == nil, reply.err)
     poses = reply.data
     assert(type(poses) == "table")
-    --there could be holes in this lua-table
     assert(#poses == #paths)
   end
 
+  --todo: hgetall->{path:pos}; zrange->{path:rank}
+
+  ::dump::
+
   do
     local file = assert(io.open(outfile, "w"))
+    local function fmt(zip)
+      if zip[2] == vim.NIL then zip[2] = "0:0" end
+      return string.format("%s:%s", zip[1], zip[2])
+    end
     local ok, err = pcall(function()
-      local function fmt(zip) return string.format("%s:%s", zip[1], zip[2]) end
       for batch in itertools.batched(itertools.zip(paths, poses), 256) do
+        if batch[2] == vim.NIL then batch[2] = "0:0" end
         local line = its(batch):map(fmt):join("\n")
         file:write(line)
         file:write("\n")

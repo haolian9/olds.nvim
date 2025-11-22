@@ -49,15 +49,15 @@ return function(stash)
           llen = assert(tonumber(string.sub(head_part, 2, -3)))
         end
         local list = {}
-        for _ = 1, llen do
+        for idx = 1, llen do
           -- assume all elements are bulk string
           local head_part = await_join(stash.popuntil, stash, "\r\n")
           local len = assert(tonumber(string.sub(head_part, 2, -3)))
           if len >= 0 then
             local str_part = await_join(stash.popn, stash, len + 2)
-            table.insert(list, string.sub(str_part, 1, -3))
-          elseif len == -1 then
-            error("unreachable: a nil element; head_part='%s'" .. vim.inspect(head_part))
+            list[idx] = string.sub(str_part, 1, -3)
+          elseif len == -1 then -- nil element, represent by vim.NIL
+            list[idx] = vim.NIL
           else
             error("unreachable: len < -1")
           end

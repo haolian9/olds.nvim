@@ -24,7 +24,7 @@ do
   --stylua: ignore start
   local list = {
     "ZADD", "ZRANGE", "ZREM",
-    "HSET", "HMGET",
+    "HSET", "HMGET", "HGETALL",
     "DEL", "HDEL",
     "PING",
   }
