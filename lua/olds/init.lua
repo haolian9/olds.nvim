@@ -21,8 +21,6 @@ do
   facts.ranks_id = string.format("%s:nvim:olds:ranks", uid)
   ---a redis hash; field={path}, value=‘{lnum}:{col}’
   facts.pos_id = string.format("%s:nvim:olds:poses", uid)
-
-  facts.aug = "olds://"
 end
 
 local contracts = {}
@@ -136,7 +134,7 @@ do
 end
 
 function M.start_recording()
-  local aug = augroups.Augroup(facts.aug)
+  local aug = augroups.Augroup("olds://recording")
   aug:repeats("BufWinLeave", {
     callback = function() history:record(ni.get_current_win()) end,
   })
@@ -150,12 +148,11 @@ function M.start_recording()
   })
 
   aug:repeats({ "FocusLost", "VimLeave" }, {
-    group = facts.augrp,
     callback = function() history:persist() end,
   })
 end
 
-function M.stop_recording() ni.del_augroup_by_name(facts.aug) end
+function M.stop_recording() ni.del_augroup_by_name("olds://recording") end
 
 --show the whole history in a floatwin
 function M.show_history()
@@ -263,6 +260,21 @@ function M.prune_history()
       if running <= 0 then vim.schedule(prune_danglings) end
     end)
   end
+end
+
+---@param fpath string @abspath
+---@return ?{lnum:integer,col:integer} @lnum and col are 0-based
+function M.last_position(fpath)
+  local reply = client:send("HGET", facts.pos_id, fpath)
+  assert(reply.err == nil, reply.err)
+  local data = reply.data
+  if data == nil then return end
+  assert(type(data) == "string")
+  ---pattern={lnum}:{col}
+  local parts = strlib.splits(data, ":", 1)
+  local lnum = assert(tonumber(parts[1]), parts[1])
+  local col = assert(tonumber(parts[2]), parts[2])
+  return { lnum = lnum, col = col }
 end
 
 function M.ping()
